@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Praj Case Study Demo</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="title-block">
+          <p class="eyebrow">Praj case study</p>
+          <h1>Fermentation intelligence cockpit</h1>
+        </div>
+        <div class="topbar-workspace">
+          <div class="status-chips" aria-label="Current workspace status">
+            <span class="status-chip accent">Hybrid fit</span>
+            <span class="status-chip" id="chip-rows">Loading rows</span>
+            <span class="status-chip" id="chip-split">Batch-wise split</span>
+            <span class="status-chip" id="workflow-state">Raw data ready</span>
+          </div>
+          <nav class="tabs" aria-label="Demo sections">
+            <button class="tab-button active" data-view="fitting" type="button" aria-pressed="true">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h16M6 16l4-5 3 3 5-8" /></svg>
+              Model fitting
+            </button>
+            <button class="tab-button" data-view="scenario" type="button" aria-pressed="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 18c4-11 10-11 14 0M5 18h14M12 6v4" /></svg>
+              Scenario
+            </button>
+          </nav>
+        </div>
+      </header>
+
+      <main>
+        <section class="view active" id="fitting-view" aria-labelledby="fitting-heading">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Workflow 01</p>
+              <h2 id="fitting-heading">Model fitting workspace</h2>
+            </div>
+            <a class="text-link" href="data/raw_data.pdf" target="_blank" rel="noreferrer">Open sample PDF</a>
+          </div>
+
+          <div class="model-grid">
+            <aside class="panel controls-panel" aria-label="Model fitting controls">
+              <ol class="workflow-stepper">
+                <li class="workflow-step active" data-workflow-step="upload">
+                  <div class="step-marker">1</div>
+                  <div class="step-content">
+                    <div class="step-heading">
+                      <strong>Upload/raw data</strong>
+                      <span id="upload-step-state">Sample PDF available</span>
+                    </div>
+                    <label class="file-drop" for="raw-pdf">
+                      <input id="raw-pdf" type="file" accept="application/pdf" />
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4m0 0 4 4m-4-4-4 4M5 15v4h14v-4" /></svg>
+                      <span id="file-name">Use sample raw_data.pdf or choose a PDF</span>
+                    </label>
+                    <button class="primary-button" id="convert-button" type="button">
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+                      Convert to structured data
+                    </button>
+                  </div>
+                </li>
+
+                <li class="workflow-step" data-workflow-step="validation">
+                  <div class="step-marker">2</div>
+                  <div class="step-content">
+                    <div class="step-heading">
+                      <strong>Schema validation</strong>
+                      <span id="convert-status">Ready</span>
+                    </div>
+                    <div class="agent-stack" aria-label="Conversion agents">
+                      <div class="agent-row active" data-agent-step="0">
+                        <span></span>
+                        Document parser
+                      </div>
+                      <div class="agent-row" data-agent-step="1">
+                        <span></span>
+                        Schema mapper
+                      </div>
+                      <div class="agent-row" data-agent-step="2">
+                        <span></span>
+                        Unit harmonizer
+                      </div>
+                      <div class="agent-row" data-agent-step="3">
+                        <span></span>
+                        Validation pass
+                      </div>
+                    </div>
+                    <div class="progress-block">
+                      <div class="progress-copy">
+                        <span>Conversion</span>
+                        <span id="convert-percent">0%</span>
+                      </div>
+                      <div class="progress-track"><span id="convert-progress"></span></div>
+                    </div>
+                  </div>
+                </li>
+
+                <li class="workflow-step" data-workflow-step="configuration">
+                  <div class="step-marker">3</div>
+                  <div class="step-content">
+                    <div class="step-heading">
+                      <strong>Model configuration</strong>
+                      <span id="config-step-state">Hybrid constraints</span>
+                    </div>
+                    <div class="config-grid">
+                      <div class="control-group">
+                        <label class="field-label" for="model-type">Model type</label>
+                        <select id="model-type">
+                          <option>Mechanistic</option>
+                          <option selected>Hybrid</option>
+                        </select>
+                      </div>
+
+                      <div class="control-group">
+                        <label class="field-label" for="bio-system">Biological system</label>
+                        <select id="bio-system">
+                          <option selected>Lactic acid</option>
+                          <option>Isobutanol</option>
+                          <option>PHB</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <fieldset class="checkbox-set">
+                      <legend>Physics constraints</legend>
+                      <label><input type="checkbox" checked /> Mass balance</label>
+                      <label><input type="checkbox" /> ODE system</label>
+                    </fieldset>
+
+                    <div class="control-group">
+                      <label class="split-label" for="split-fraction">
+                        <span>Train fraction</span>
+                        <strong id="split-value">80%</strong>
+                      </label>
+                      <input id="split-fraction" type="range" min="50" max="90" value="80" step="5" />
+                    </div>
+
+                    <div class="control-group">
+                      <label class="field-label" for="split-method">Split method</label>
+                      <select id="split-method">
+                        <option>Random</option>
+                        <option selected>Batch-wise</option>
+                      </select>
+                    </div>
+                  </div>
+                </li>
+
+                <li class="workflow-step" data-workflow-step="fit">
+                  <div class="step-marker">4</div>
+                  <div class="step-content">
+                    <div class="step-heading">
+                      <strong>Fit</strong>
+                      <span id="fit-status">Waiting for structured data</span>
+                    </div>
+                    <button class="primary-button run-button" id="fit-button" type="button">
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
+                      Run model fitting
+                    </button>
+                    <div class="progress-block compact">
+                      <div class="progress-copy">
+                        <span>Fit progress</span>
+                        <span id="fit-percent">0%</span>
+                      </div>
+                      <div class="progress-track"><span id="fit-progress"></span></div>
+                    </div>
+                  </div>
+                </li>
+              </ol>
+            </aside>
+
+            <section class="panel data-panel" aria-label="Structured data viewer">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Structured data</p>
+                  <h3>Fermentation batch table</h3>
+                </div>
+                <div class="toolbar">
+                  <label class="visually-hidden" for="table-search">Filter table rows</label>
+                  <input id="table-search" type="search" placeholder="Filter rows" />
+                  <a class="icon-button" href="data/structured_data.xlsx" title="Download XLSX" aria-label="Download XLSX">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 20h14" /></svg>
+                  </a>
+                </div>
+              </div>
+
+              <div class="summary-grid" aria-label="Data and fit summary">
+                <article class="summary-tile">
+                  <span>Rows</span>
+                  <strong id="summary-rows">-</strong>
+                </article>
+                <article class="summary-tile">
+                  <span>Columns</span>
+                  <strong id="summary-columns">-</strong>
+                </article>
+                <article class="summary-tile">
+                  <span>Train split</span>
+                  <strong id="summary-split">80%</strong>
+                </article>
+                <article class="summary-tile">
+                  <span>Best R2</span>
+                  <strong id="summary-r2">-</strong>
+                </article>
+                <article class="summary-tile">
+                  <span>Overall RMSE</span>
+                  <strong id="summary-rmse">-</strong>
+                </article>
+              </div>
+
+              <div class="table-meta">
+                <span id="table-count">Loading rows</span>
+                <span>Source: test_set_predictions.csv</span>
+              </div>
+              <div class="table-wrap">
+                <table id="data-table"></table>
+              </div>
+            </section>
+          </div>
+
+          <section class="results-grid" id="results-section" aria-label="Model fit results">
+            <div class="panel plot-panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Test set result</p>
+                  <h3>Parity plot</h3>
+                </div>
+                <div class="segmented-control" id="species-control" aria-label="Parity species">
+                  <button class="active" type="button" data-species="P">Lactic acid</button>
+                  <button type="button" data-species="X">Biomass</button>
+                  <button type="button" data-species="S">Glucose</button>
+                  <button type="button" data-species="M">Maltose</button>
+                  <button type="button" data-species="V">Volume</button>
+                </div>
+              </div>
+              <div class="chart-meta">
+                <span id="result-state">Awaiting fit</span>
+                <span id="parity-species-label">Lactic acid</span>
+              </div>
+              <svg class="chart" id="parity-chart" viewBox="0 0 900 460" role="img" aria-label="Parity plot"></svg>
+            </div>
+
+            <div class="panel metrics-panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Fit quality</p>
+                  <h3>Metrics</h3>
+                </div>
+              </div>
+              <div class="metric-list" id="metrics-list"></div>
+            </div>
+          </section>
+        </section>
+
+        <section class="view" id="scenario-view" aria-labelledby="scenario-heading">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Workflow 02</p>
+              <h2 id="scenario-heading">Batch tracking and intervention</h2>
+            </div>
+            <div class="status-pill" id="scenario-state">Golden trajectory</div>
+          </div>
+
+          <div class="scenario-grid">
+            <section class="panel batch-panel" aria-label="Batch trajectory chart">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Command surface</p>
+                  <h3>Biomass trajectory</h3>
+                </div>
+                <div class="chart-readout">
+                  <span>t <strong id="time-readout">0.0</strong> h</span>
+                  <span>X <strong id="value-readout">0.0</strong> g/L</span>
+                </div>
+              </div>
+              <div class="scenario-strip" aria-label="Scenario readout">
+                <div>
+                  <span>Phase</span>
+                  <strong id="phase-label">Golden trajectory</strong>
+                </div>
+                <div>
+                  <span>Intervention</span>
+                  <strong id="intervention-label">Not selected</strong>
+                </div>
+                <div>
+                  <span>Endpoint</span>
+                  <strong id="endpoint-label">-</strong>
+                </div>
+              </div>
+              <svg class="chart large" id="batch-chart" viewBox="0 0 980 520" role="img" aria-label="Batch trajectory"></svg>
+            </section>
+
+            <aside class="panel controls-panel scenario-controls" aria-label="Scenario controls">
+              <div class="decision-panel" aria-label="Decision state">
+                <div class="decision-row">
+                  <span>Status</span>
+                  <strong id="decision-status">Baseline tracking</strong>
+                </div>
+                <div class="decision-row">
+                  <span>Trigger</span>
+                  <strong id="decision-trigger">15 h review point</strong>
+                </div>
+                <div class="decision-row">
+                  <span>Action</span>
+                  <strong id="decision-action">Play batch</strong>
+                </div>
+              </div>
+
+              <div class="control-group">
+                <label class="field-label" for="scenario-system">Biological system</label>
+                <select id="scenario-system">
+                  <option selected>Lactic acid</option>
+                  <option>Isobutanol</option>
+                  <option>PHB</option>
+                </select>
+              </div>
+
+              <div class="condition-grid">
+                <label>
+                  <span>Temperature</span>
+                  <input id="temperature-input" type="number" value="37" min="20" max="45" />
+                  <em>deg C</em>
+                </label>
+                <label>
+                  <span>Substrate</span>
+                  <input id="substrate-input" type="number" value="78" min="0" max="120" />
+                  <em>g/L</em>
+                </label>
+                <label>
+                  <span>Biomass</span>
+                  <input id="biomass-input" type="number" value="0.7" min="0" max="20" step="0.1" />
+                  <em>g/L</em>
+                </label>
+              </div>
+
+              <div class="button-row">
+                <button class="primary-button" id="play-button" type="button">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
+                  <span id="play-button-label">Play</span>
+                </button>
+                <button class="secondary-button" id="reset-button" type="button">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7v5h5M20 17v-5h-5M6.2 9A7 7 0 0 1 18 7.8M17.8 15A7 7 0 0 1 6 16.2" /></svg>
+                  Reset
+                </button>
+              </div>
+
+              <div class="intervention-box" id="intervention-box" hidden>
+                <p class="field-label">Intervention at 15 h</p>
+                <div class="intervention-list">
+                  <button type="button" data-scenario="1.0x_F">
+                    <span>Maintain current feed</span>
+                    <small>Reference feed profile</small>
+                  </button>
+                  <button type="button" data-scenario="0.8x_F">
+                    <span>Moderate feed reduction</span>
+                    <small>80% feed profile</small>
+                  </button>
+                  <button type="button" data-scenario="0.5x_F">
+                    <span>Aggressive feed reduction</span>
+                    <small>50% feed profile</small>
+                  </button>
+                </div>
+              </div>
+
+              <div class="outcome-summary" id="outcome-summary" hidden>
+                <p class="field-label">Predicted outcome</p>
+                <div class="outcome-grid">
+                  <div>
+                    <span>Final biomass</span>
+                    <strong id="outcome-biomass">-</strong>
+                  </div>
+                  <div>
+                    <span>Delta vs current feed</span>
+                    <strong id="outcome-delta">-</strong>
+                  </div>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
