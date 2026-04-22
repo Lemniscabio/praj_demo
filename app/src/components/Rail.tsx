@@ -77,11 +77,6 @@ export function Rail() {
         })}
       </nav>
 
-      <div className="mt-auto px-5 py-5 text-[11px] text-muted-soft leading-relaxed">
-        <div className="h-px bg-hairline mb-4" />
-        <div>Praj case study</div>
-        <div className="tabular">21 Apr 2026 · v0.1</div>
-      </div>
     </aside>
   );
 }
