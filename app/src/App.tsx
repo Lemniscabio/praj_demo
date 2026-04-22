@@ -3,7 +3,9 @@ import { Rail } from "./components/Rail";
 import { useApp } from "./lib/store";
 import { FitSurface } from "./surfaces/Fit";
 import { Scenario1Surface } from "./surfaces/Scenario1";
-import { Scenario2Surface } from "./surfaces/Scenario2";
+// Scenario 2 (scale-up version) is archived at ./surfaces/_archive/Scenario2.scaleup.tsx
+// while the new anomaly-rescue implementation is being built.
+// import { Scenario2Surface } from "./surfaces/Scenario2";
 
 export default function App() {
   const surface = useApp((s) => s.surface);
@@ -23,7 +25,11 @@ export default function App() {
           >
             {surface === "fit" && <FitSurface />}
             {surface === "scenario1" && <Scenario1Surface />}
-            {surface === "scenario2" && <Scenario2Surface />}
+            {surface === "scenario2" && (
+              <div className="px-10 py-10 text-muted text-sm">
+                Scenario 2 is being rebuilt for the updated dataset.
+              </div>
+            )}
           </motion.div>
         </AnimatePresence>
       </main>
