@@ -45,18 +45,8 @@ export function Rail() {
   return (
     <aside className="shrink-0 w-[240px] border-r border-hairline bg-canvas flex flex-col">
       <div className="px-5 pt-6 pb-5">
-        <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-ink text-canvas grid place-items-center">
-            <svg viewBox="0 0 20 20" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-              <path d="M4 14c2-6 10-6 12 0" />
-              <circle cx="10" cy="10" r="1.5" fill="currentColor" stroke="none" />
-            </svg>
-          </div>
-          <div className="leading-tight">
-            <div className="serif text-[15px] text-ink font-medium">Lemnisca</div>
-            <div className="text-[11px] text-muted tracking-wide uppercase">Bioprocess Studio</div>
-          </div>
-        </div>
+        <img src="/lemnisca-logo.svg" alt="Lemnisca" className="h-[22px] w-auto" />
+        <div className="text-[11px] text-muted tracking-wide uppercase mt-1.5">Bioprocess Studio</div>
       </div>
 
       <nav className="px-3 flex flex-col gap-0.5">
