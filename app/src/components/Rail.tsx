@@ -17,8 +17,8 @@ const items: { id: Surface; label: string; hint: string; icon: React.ReactNode }
   },
   {
     id: "scenario1",
-    label: "Scenario 1",
-    hint: "Batch Tracking",
+    label: "What-if simulator",
+    hint: "Feed · G/M ratio · ±2σ bands",
     icon: (
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
         <path d="M4 20V6m0 14h16M8 16l4-6 3 3 5-8" />
@@ -27,8 +27,8 @@ const items: { id: Surface; label: string; hint: string; icon: React.ReactNode }
   },
   {
     id: "scenario2",
-    label: "Scenario 2",
-    hint: "Tech Transfer",
+    label: "Anomaly rescue",
+    hint: "Feed drift · intervention",
     icon: (
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
         <path d="M4 7h10l3 3h3v10H4z" />
@@ -71,7 +71,6 @@ export function Rail() {
                 <span className="block text-[13.5px] font-medium">{it.label}</span>
                 <span className="block text-[11.5px] text-muted-soft">{it.hint}</span>
               </span>
-              {active && <span className="w-1 h-1 rounded-full bg-accent" />}
             </button>
           );
         })}

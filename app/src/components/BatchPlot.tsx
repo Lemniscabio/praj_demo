@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 
-export type Point = { t: number; p: number };
+export type Point = { t: number; p: number; lo?: number; hi?: number };
 
 const PAD = { l: 44, r: 20, t: 20, b: 32 };
 const W = 760;
@@ -17,6 +17,18 @@ const xInv = (px: number) => ((px - PAD.l) / (W - PAD.l - PAD.r)) * X_MAX;
 function path(points: Point[]) {
   if (!points.length) return "";
   return points.map((p, i) => `${i === 0 ? "M" : "L"} ${xScale(p.t).toFixed(2)} ${yScale(p.p).toFixed(2)}`).join(" ");
+}
+
+/** Build a filled polygon between lower and upper bounds; returns "" if any point is missing bounds. */
+function envelopePath(points: Point[]): string {
+  if (!points.length) return "";
+  if (points.some((p) => p.lo == null || p.hi == null)) return "";
+  const top = points.map((p, i) => `${i === 0 ? "M" : "L"} ${xScale(p.t).toFixed(2)} ${yScale(p.hi as number).toFixed(2)}`);
+  const bottom = points
+    .slice()
+    .reverse()
+    .map((p) => `L ${xScale(p.t).toFixed(2)} ${yScale(p.lo as number).toFixed(2)}`);
+  return [...top, ...bottom, "Z"].join(" ");
 }
 
 // Linear interpolation: value at time t given a sorted series
@@ -115,6 +127,55 @@ export function BatchPlot({
         ))}
         <text x={PAD.l - 32} y={PAD.t + 2} fontSize={10} fill="#6B7280" textAnchor="start">g/L</text>
 
+        {/* Golden envelope (behind everything) */}
+        {golden.length > 0 && envelopePath(golden) && (
+          <motion.path
+            d={envelopePath(golden)}
+            fill="#4E8B73"
+            fillOpacity={0.1}
+            stroke="none"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.7, ease: [0.23, 1, 0.32, 1] }}
+          />
+        )}
+
+        {/* Prediction envelopes — clip-revealed in sync with line draw */}
+        {predictions.map((pr) => {
+          const isSelected = selectedScenario === pr.id;
+          const compare = selectedScenario === null;
+          if (selectedScenario !== null && !isSelected) return null;
+          const env = envelopePath(pr.points);
+          if (!env) return null;
+          const fillOpacity = isSelected ? 0.18 : compare ? 0.09 : 0;
+          const duration = isSelected ? 3.8 : 2.4;
+          const clipId = `clip-env-${pr.id.replace(".", "_")}`;
+          const startX = pr.points.length ? xScale(pr.points[0].t) : PAD.l;
+          const endX = pr.points.length ? xScale(pr.points[pr.points.length - 1].t) : W - PAD.r;
+          return (
+            <g key={`env-${pr.id}`}>
+              <defs>
+                <clipPath id={clipId}>
+                  <motion.rect
+                    x={startX} y={PAD.t - 10}
+                    height={H - PAD.t + 10}
+                    initial={{ width: 0 }}
+                    animate={{ width: endX - startX }}
+                    transition={{ duration, ease: "linear" }}
+                  />
+                </clipPath>
+              </defs>
+              <path
+                d={env}
+                fill={pr.color}
+                fillOpacity={fillOpacity}
+                stroke="none"
+                clipPath={`url(#${clipId})`}
+              />
+            </g>
+          );
+        })}
+
         {/* Golden batch */}
         {golden.length > 0 && (
           <motion.path
@@ -125,7 +186,7 @@ export function BatchPlot({
             opacity={0.9}
             initial={{ pathLength: 0 }}
             animate={{ pathLength: 1 }}
-            transition={{ duration: 0.9, ease: [0.23, 1, 0.32, 1] }}
+            transition={{ duration: 1.6, ease: [0.23, 1, 0.32, 1] }}
           />
         )}
 
@@ -146,7 +207,7 @@ export function BatchPlot({
               style={{ opacity }}
               initial={{ pathLength: 0 }}
               animate={{ pathLength: 1 }}
-              transition={{ duration: isSelected ? 1.2 : 0.9, ease: [0.32, 0.72, 0, 1] }}
+              transition={{ duration: isSelected ? 3.8 : 2.4, ease: "linear" }}
             />
           );
         })}
@@ -190,7 +251,12 @@ export function BatchPlot({
           return labels.map(({ pr, ey, ly, x }) => {
             const labelRightX = x - LEADER_LEN;
             return (
-              <g key={`lbl-${pr.id}`}>
+              <motion.g
+                key={`lbl-${pr.id}`}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.35, delay: 2.4, ease: [0.23, 1, 0.32, 1] }}
+              >
                 <circle cx={x} cy={ey} r={3.5} fill={pr.color} />
                 {/* Leader from endpoint to label */}
                 <line
@@ -223,7 +289,7 @@ export function BatchPlot({
                 >
                   {pr.id}×
                 </text>
-              </g>
+              </motion.g>
             );
           });
         })()}

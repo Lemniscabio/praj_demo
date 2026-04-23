@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { SectionTitle, Button, Pill } from "../components/ui";
 import { Stage } from "../components/Stage";
 import { StructuredSheet } from "../components/StructuredSheet";
+import { StructuredPlot } from "../components/StructuredPlot";
 import { TrajectoryPlot } from "../components/TrajectoryPlot";
 import { loadCSV } from "../lib/csv";
 import { loadStructuredWorkbook } from "../lib/xlsx";
@@ -11,8 +12,8 @@ import { cn } from "../lib/cn";
 
 // ── Tune these to change animation pacing ────────────────────────────
 export const DURATIONS = {
-  ingest_ms: 2600, // PDF extraction progress
-  fit_ms: 7200,    // model fitting progress
+  ingest_ms: 4800, // PDF extraction progress
+  fit_ms: 11000,   // model fitting progress
 };
 // ─────────────────────────────────────────────────────────────────────
 
@@ -75,7 +76,7 @@ export function FitSurface() {
     <div className="px-10 py-10 max-w-[1280px] mx-auto">
       <SectionTitle
         eyebrow="Workflow 01"
-        title="Fit a hybrid model to lab data"
+        title="Process data"
         sub="Upload raw process data, review the structured extract, configure the model, and fit. Metrics are held against a test set."
       />
 
@@ -297,6 +298,27 @@ function IngestStage({
 
 function StructuredStage({ status, onDone }: { status: "pending" | "active" | "done"; onDone: () => void }) {
   const [open, setOpen] = useState(false);
+  const [sheets, setSheets] = useState<Record<string, Record<string, number | string>[]> | null>(null);
+  const [sheetNames, setSheetNames] = useState<string[]>([]);
+  const [activeSheet, setActiveSheet] = useState<string>("Batch_1");
+
+  useEffect(() => {
+    loadStructuredWorkbook().then((wb) => {
+      setSheets(wb.sheets);
+      setSheetNames(wb.sheetNames);
+    });
+  }, []);
+
+  const chipNames = useMemo(() => {
+    const names = sheetNames.length ? sheetNames : [];
+    const summary = names.filter((n) => n === "Summary");
+    const batches = names.filter((n) => /^Batch_\d+$/.test(n))
+      .sort((a, b) => Number(a.replace("Batch_", "")) - Number(b.replace("Batch_", "")));
+    return [...summary, ...batches];
+  }, [sheetNames]);
+
+  const activeRows = sheets && activeSheet in sheets ? sheets[activeSheet] : [];
+
   return (
     <>
       <Stage
@@ -305,24 +327,53 @@ function StructuredStage({ status, onDone }: { status: "pending" | "active" | "d
         status={status}
         summary={<><Pill tone="accent">Reviewed</Pill></>}
       >
-        <div className="pt-4 flex flex-col md:flex-row items-stretch gap-4">
-          <div className="flex-1 rounded-2xl bg-canvas border border-hairline p-6">
-            <div className="text-[12px] uppercase tracking-[0.12em] text-muted mb-3">Sheets</div>
-            <div className="flex flex-wrap gap-1.5 mb-5">
-              {["Summary", "Batch_1", "Batch_2", "Batch_3", "Batch_4", "Batch_5", "Batch_6", "Batch_7", "Batch_8", "Batch_9", "Batch_10"].map((c) => (
-                <span key={c} className="inline-flex h-6 px-2.5 rounded-full bg-canvas-raised border border-hairline text-[11.5px] text-ink-soft tabular">{c}</span>
-              ))}
+        <div className="pt-4 flex flex-col gap-4">
+          <div className="rounded-2xl bg-canvas border border-hairline p-6">
+            <div className="flex items-baseline justify-between mb-3">
+              <div className="text-[12px] uppercase tracking-[0.12em] text-muted">Sheets</div>
+              <div className="text-[11px] text-muted-soft tabular">{chipNames.length} total</div>
             </div>
-            <p className="text-[13px] text-ink-soft leading-relaxed max-w-[52ch]">
-              A Summary sheet of per-batch initial conditions plus one time-series sheet for each of the 10 batches (Biomass X, Glucose S, Lactic Acid P, Maltose M, Volume V over time). Open the full workbook to inspect any sheet before fitting.
+            <div className="flex gap-1.5 mb-5 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-thin">
+              {chipNames.map((c) => {
+                const isActive = c === activeSheet;
+                return (
+                  <button
+                    key={c}
+                    onClick={() => setActiveSheet(c)}
+                    className={cn(
+                      "press inline-flex shrink-0 h-6 px-2.5 rounded-full border text-[11.5px] tabular transition-colors",
+                      isActive
+                        ? "bg-ink text-canvas border-ink"
+                        : "bg-canvas-raised text-ink-soft border-hairline hover:border-hairline-strong"
+                    )}
+                  >
+                    {c}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-[13px] text-ink-soft leading-relaxed max-w-[58ch]">
+              A Summary sheet of per-batch initial conditions plus one time-series sheet per batch (Biomass X, Glucose S, Lactic Acid P, Maltose M, Volume V over time). Click a chip to preview its trajectory.
             </p>
+
+            {activeSheet !== "Summary" && activeRows.length > 0 && (
+              <div className="mt-5">
+                <StructuredPlot rows={activeRows} batchName={activeSheet} />
+              </div>
+            )}
+            {activeSheet === "Summary" && (
+              <div className="mt-5 rounded-xl bg-canvas-raised border border-hairline p-4 text-[12px] text-muted">
+                The Summary sheet holds per-batch initial conditions — open the full table to inspect values.
+              </div>
+            )}
           </div>
-          <div className="w-full md:w-[300px] flex md:flex-col gap-3">
-            <Button variant="ghost" onClick={() => setOpen(true)} className="flex-1">
+
+          <div className="flex items-center justify-end gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setOpen(true)}>
               <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><path d="M2 4h12M2 8h12M2 12h12"/></svg>
               Open table
             </Button>
-            <Button onClick={onDone} className="flex-1">Looks good →</Button>
+            <Button size="sm" onClick={onDone}>Looks good →</Button>
           </div>
         </div>
       </Stage>
@@ -366,7 +417,7 @@ function ConfigureStage({
             value={cfg.modelType}
             options={[
               { v: "mechanistic", label: "Mechanistic" },
-              { v: "hybrid", label: "Hybrid (neural + mechanistic)" },
+              { v: "hybrid", label: "Hybrid" },
             ]}
             onChange={(v) => setCfg({ ...cfg, modelType: v as Config["modelType"] })}
           />
@@ -616,7 +667,7 @@ function FitStage({
                   <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#6B9E88" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5 10 17 19 7" /></svg>
                 </div>
                 <div className="flex-1">
-                  <div className="text-[14px] text-ink">Fit complete — overall R² 0.980</div>
+                  <div className="text-[14px] text-ink">Fit complete — lactic acid R² 0.839</div>
                   <div className="text-[12px] text-muted">Loss settled at {loss.toFixed(4)} · 200 epochs · {(DURATIONS.fit_ms / 1000).toFixed(1)}s</div>
                 </div>
                 <Button onClick={onDone}>See results →</Button>
@@ -647,7 +698,7 @@ function ResultsStage({ status, onToScenario }: { status: "pending" | "active" |
     loadCSV("/data/test_set_metrics.csv").then((r) => setMetrics(r as Record<string, number | string>[]));
   }, [status]);
 
-  const overall = metrics.find((m) => m.Species === "Overall");
+  const product = metrics.find((m) => typeof m.Species === "string" && (m.Species as string).startsWith("Lactic"));
   const batches = Array.from(new Set(rows.map((r) => Number(r.Batch)))).filter((n) => Number.isFinite(n)).sort((a, b) => a - b);
   const speciesLabel = SPECIES.find((s) => s.key === species);
 
@@ -662,40 +713,45 @@ function ResultsStage({ status, onToScenario }: { status: "pending" | "active" |
                 {speciesLabel?.label} over time {batch != null && <span className="text-muted">· Batch {batch}</span>}
               </div>
             </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              {batches.length > 0 && (
-                <div className="flex items-center gap-1 bg-canvas-raised rounded-full border border-hairline p-0.5">
-                  <span className="text-[10.5px] uppercase tracking-wide text-muted px-2 whitespace-nowrap">Batch</span>
-                  {batches.map((b) => (
+            <div className="flex items-center gap-1 bg-canvas-raised rounded-full border border-hairline p-0.5">
+              {SPECIES.map((sp) => (
+                <button
+                  key={sp.key}
+                  onClick={() => setSpecies(sp.key)}
+                  className={cn(
+                    "press tabular h-7 px-2.5 rounded-full text-[11.5px] transition-colors",
+                    species === sp.key ? "bg-ink text-canvas" : "text-muted hover:text-ink"
+                  )}
+                >
+                  {sp.key}
+                </button>
+              ))}
+            </div>
+          </div>
+          {batches.length > 0 && (
+            <div className="px-5 py-2.5 border-b border-hairline flex items-center gap-3">
+              <div className="text-[10.5px] uppercase tracking-[0.12em] text-muted shrink-0">Batch</div>
+              <div className="flex gap-1 overflow-x-auto scrollbar-thin -mx-1 px-1 flex-1">
+                {batches.map((b) => {
+                  const active = b === batch;
+                  return (
                     <button
                       key={b}
                       onClick={() => setBatch(b)}
                       className={cn(
-                        "press tabular h-7 min-w-[28px] px-2 rounded-full text-[11.5px] whitespace-nowrap transition-colors",
-                        batch === b ? "bg-ink text-canvas" : "text-muted hover:text-ink"
+                        "press shrink-0 h-6 min-w-[30px] px-2 rounded-full border text-[11px] tabular transition-colors",
+                        active
+                          ? "bg-ink text-canvas border-ink"
+                          : "bg-canvas-raised text-muted border-hairline hover:border-hairline-strong hover:text-ink"
                       )}
                     >
                       {b}
                     </button>
-                  ))}
-                </div>
-              )}
-              <div className="flex items-center gap-1 bg-canvas-raised rounded-full border border-hairline p-0.5">
-                {SPECIES.map((sp) => (
-                  <button
-                    key={sp.key}
-                    onClick={() => setSpecies(sp.key)}
-                    className={cn(
-                      "press tabular h-7 px-2.5 rounded-full text-[11.5px] transition-colors",
-                      species === sp.key ? "bg-ink text-canvas" : "text-muted hover:text-ink"
-                    )}
-                  >
-                    {sp.key}
-                  </button>
-                ))}
+                  );
+                })}
               </div>
             </div>
-          </div>
+          )}
           <div className="h-[340px] px-2">
             {batch != null && <TrajectoryPlot rows={rows} species={species} batch={batch} />}
           </div>
@@ -751,16 +807,16 @@ function ResultsStage({ status, onToScenario }: { status: "pending" | "active" |
             </div>
           </div>
 
-          {overall && (
+          {product && (
             <div className="rounded-2xl bg-ink text-canvas p-5 flex items-baseline gap-6">
               <div>
-                <div className="text-[11px] uppercase tracking-[0.12em] text-canvas/60">Overall</div>
-                <div className="serif text-[28px] leading-none mt-2 tabular">{Number(overall.R2).toFixed(3)}</div>
-                <div className="text-[11px] text-canvas/60 mt-1">R² across all species</div>
+                <div className="text-[11px] uppercase tracking-[0.12em] text-canvas/60">Lactic Acid (P)</div>
+                <div className="serif text-[28px] leading-none mt-2 tabular">{Number(product.R2).toFixed(3)}</div>
+                <div className="text-[11px] text-canvas/60 mt-1">R² on the product channel</div>
               </div>
               <div className="ml-auto text-right tabular text-[12px] text-canvas/70 space-y-1">
-                <div>MAE {Number(overall.MAE).toFixed(3)}</div>
-                <div>RMSE {Number(overall.RMSE).toFixed(3)}</div>
+                <div>MAE {Number(product.MAE).toFixed(3)}</div>
+                <div>RMSE {Number(product.RMSE).toFixed(3)}</div>
               </div>
             </div>
           )}
