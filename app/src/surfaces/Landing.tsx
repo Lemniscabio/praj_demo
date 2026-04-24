@@ -213,9 +213,25 @@ export function LandingSurface() {
 /* ─── Top bar ─────────────────────────────────────────────────────────── */
 
 function TopBar() {
+  // A soft, non-linear blur that fades out through the bottom edge. The
+  // outer wrapper is a fixed-height strip; inside, a second layer carries
+  // the backdrop-blur masked by a vertical gradient so the blur strength
+  // tapers toward zero instead of cutting off at a hard line.
+  const mask =
+    "linear-gradient(to bottom, rgba(0,0,0,1) 55%, rgba(0,0,0,0.72) 78%, rgba(0,0,0,0.32) 92%, rgba(0,0,0,0) 100%)";
   return (
-    <div className="sticky top-0 z-10 bg-canvas/70 backdrop-blur-md">
-      <div className="mx-auto max-w-[1240px] px-10 h-20 flex items-center justify-between">
+    <div className="sticky top-0 z-10 pointer-events-none">
+      <div
+        aria-hidden
+        className="absolute inset-0 backdrop-blur-sm"
+        style={{
+          WebkitMaskImage: mask,
+          maskImage: mask,
+          background:
+            "linear-gradient(to bottom, rgba(251,250,247,0.78) 40%, rgba(251,250,247,0.42) 75%, rgba(251,250,247,0) 100%)",
+        }}
+      />
+      <div className="relative mx-auto max-w-[1240px] px-10 h-20 flex items-center justify-between pointer-events-auto">
         <div className="flex items-center gap-3">
           <img src="/lemnisca-logo.svg" alt="Lemnisca" className="h-[22px] w-auto" />
           <span className="text-[12.5px] text-muted tabular tracking-wide">LABS</span>
