@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { Rail } from "./components/Rail";
 import { useApp } from "./lib/store";
+import { LandingSurface } from "./surfaces/Landing";
 import { FitSurface } from "./surfaces/Fit";
 import { Scenario1Surface } from "./surfaces/Scenario1";
 import { Scenario2Surface } from "./surfaces/Scenario2";
@@ -37,7 +38,7 @@ export default function App() {
       <div className="md:hidden h-full w-full fixed inset-0 z-50">
         <MobileGate />
       </div>
-      <Rail />
+      {surface !== "landing" && <Rail />}
       <main className="flex-1 min-w-0 overflow-y-auto">
         <AnimatePresence mode="wait">
           <motion.div
@@ -48,6 +49,7 @@ export default function App() {
             transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
             className="min-h-full"
           >
+            {surface === "landing" && <LandingSurface />}
             {surface === "fit" && <FitSurface />}
             {surface === "scenario1" && <Scenario1Surface />}
             {surface === "scenario2" && <Scenario2Surface />}
