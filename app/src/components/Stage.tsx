@@ -9,12 +9,14 @@ export function Stage({
   title,
   status,
   summary,
+  onRerun,
   children,
 }: {
   index: number;
   title: string;
   status: Status;
   summary?: ReactNode;
+  onRerun?: () => void;
   children?: ReactNode;
 }) {
   return (
@@ -30,7 +32,7 @@ export function Stage({
       <header className="flex items-center gap-4 px-6 py-4">
         <div
           className={cn(
-            "tabular w-7 h-7 rounded-full grid place-items-center text-[12px] font-medium",
+            "tabular w-7 h-7 rounded-full grid place-items-center text-[12px] font-medium shrink-0",
             status === "done" && "bg-accent text-canvas",
             status === "active" && "bg-ink text-canvas",
             status === "pending" && "bg-hairline text-muted"
@@ -64,6 +66,20 @@ export function Stage({
             </motion.div>
           )}
         </AnimatePresence>
+
+        {status === "done" && onRerun && (
+          <button
+            onClick={onRerun}
+            title="Rerun this step"
+            className="shrink-0 inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full border border-hairline-strong bg-canvas text-ink-soft text-[11.5px] hover:text-ink hover:border-ink/30 hover:bg-canvas-raised transition-colors"
+          >
+            <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M2.5 8a5.5 5.5 0 1 0 1.1-3.3" />
+              <path d="M2.5 3.5V5.5H4.5" />
+            </svg>
+            Rerun
+          </button>
+        )}
       </header>
 
       <AnimatePresence initial={false}>

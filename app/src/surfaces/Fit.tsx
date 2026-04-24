@@ -47,11 +47,66 @@ export function FitSurface() {
   const setModelFitted = useApp((s) => s.setModelFitted);
   const setSurface = useApp((s) => s.setSurface);
 
-  const [activeStage, setActiveStage] = useState<StageId>("ingest");
-  const done = useRef(new Set<StageId>()).current;
+  const ORDER: StageId[] = ["ingest", "structured", "configure", "fit", "results"];
 
-  const [uploadedName, setUploadedName] = useState<string>("raw_data.pdf");
-  const [uploadedSize, setUploadedSize] = useState<string>("150 pages");
+  function loadFitState() {
+    try {
+      const raw = localStorage.getItem("fitState");
+      if (!raw) return null;
+      return JSON.parse(raw) as { active: StageId; done: StageId[]; uploadedName: string; uploadedSize: string };
+    } catch { return null; }
+  }
+
+  function saveFitState(active: StageId, doneSet: Set<StageId>, name: string, size: string) {
+    try {
+      localStorage.setItem("fitState", JSON.stringify({ active, done: [...doneSet], uploadedName: name, uploadedSize: size }));
+    } catch { /* noop */ }
+  }
+
+  const saved = useRef(loadFitState()).current;
+
+  const [activeStage, setActiveStageRaw] = useState<StageId>(saved?.active ?? "ingest");
+  const doneRef = useRef(new Set<StageId>(saved?.done ?? []));
+  const [, forceUpdate] = useState(0);
+  const [uploadedName, setUploadedName] = useState<string>(saved?.uploadedName ?? "raw_data.pdf");
+  const [uploadedSize, setUploadedSize] = useState<string>(saved?.uploadedSize ?? "");
+
+  const done = doneRef.current;
+
+  const setActiveStage = (id: StageId) => {
+    setActiveStageRaw(id);
+  };
+
+  // Persist whenever active or done changes.
+  const persistState = (active: StageId, name: string, size: string) => {
+    saveFitState(active, doneRef.current, name, size);
+  };
+
+  const rerunFrom = (id: StageId) => {
+    const idx = ORDER.indexOf(id);
+    ORDER.slice(idx).forEach((s) => doneRef.current.delete(s));
+    if (id === "fit" || id === "results") setModelFitted(false);
+    setActiveStageRaw(id);
+    persistState(id, uploadedName, uploadedSize);
+    forceUpdate((n) => n + 1);
+  };
+
+  // If the user hasn't uploaded their own file yet, read the sample PDF's real
+  // byte length via a HEAD request rather than showing a hand-typed size.
+  useEffect(() => {
+    if (uploadedName !== "raw_data.pdf" || uploadedSize) return;
+    fetch("/data/raw_data.pdf", { method: "HEAD" })
+      .then((r) => {
+        const len = Number(r.headers.get("content-length"));
+        if (!Number.isFinite(len) || len <= 0) return;
+        const mb = len / (1024 * 1024);
+        const s = mb >= 1 ? `${mb.toFixed(1)} MB` : `${(len / 1024).toFixed(0)} KB`;
+        setUploadedSize(s);
+        saveFitState(activeStage, doneRef.current, uploadedName, s);
+      })
+      .catch(() => { /* noop */ });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uploadedName]);
 
   const [cfg, setCfg] = useState<Config>({
     modelType: "hybrid",
@@ -70,6 +125,7 @@ export function FitSurface() {
   const advance = (from: StageId, to: StageId) => {
     done.add(from);
     setActiveStage(to);
+    persistState(to, uploadedName, uploadedSize);
   };
 
   return (
@@ -84,22 +140,26 @@ export function FitSurface() {
         <IngestStage
           status={status("ingest")}
           onDone={() => advance("ingest", "structured")}
+          onRerun={() => rerunFrom("ingest")}
           uploadedName={uploadedName}
           uploadedSize={uploadedSize}
           onFile={(name, size) => {
             setUploadedName(name);
             setUploadedSize(size);
+            persistState(activeStage, name, size);
           }}
         />
         <StructuredStage
           status={status("structured")}
           onDone={() => advance("structured", "configure")}
+          onRerun={() => rerunFrom("structured")}
         />
         <ConfigureStage
           status={status("configure")}
           cfg={cfg}
           setCfg={setCfg}
           onDone={() => advance("configure", "fit")}
+          onRerun={() => rerunFrom("configure")}
         />
         <FitStage
           status={status("fit")}
@@ -108,10 +168,12 @@ export function FitSurface() {
             advance("fit", "results");
             setModelFitted(true);
           }}
+          onRerun={() => rerunFrom("fit")}
         />
         <ResultsStage
           status={status("results")}
           onToScenario={() => setSurface("scenario1")}
+          onRerun={() => rerunFrom("results")}
         />
       </div>
     </div>
@@ -123,20 +185,20 @@ export function FitSurface() {
 function IngestStage({
   status,
   onDone,
+  onRerun,
   uploadedName,
   uploadedSize,
   onFile,
 }: {
   status: "pending" | "active" | "done";
   onDone: () => void;
+  onRerun: () => void;
   uploadedName: string;
   uploadedSize: string;
   onFile: (name: string, size: string) => void;
 }) {
   const [phase, setPhase] = useState<"drop" | "extracting" | "ready">("drop");
   const [progress, setProgress] = useState(0);
-  const [dragOver, setDragOver] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [stats, setStats] = useState<{ batches: number; rows: number; columns: number } | null>(null);
 
   useEffect(() => {
@@ -160,15 +222,17 @@ function IngestStage({
     return () => cancelAnimationFrame(raf);
   }, [phase]);
 
-  const handleFile = (file: File | null) => {
-    if (!file) return;
-    const sizeMB = file.size / (1024 * 1024);
-    onFile(file.name, `${sizeMB.toFixed(1)} MB`);
-    setPhase("extracting");
-  };
-
-  const useSample = () => {
-    onFile("raw_data.pdf", "150 pages");
+  const useSample = async () => {
+    let size = "";
+    try {
+      const r = await fetch("/data/raw_data.pdf", { method: "HEAD" });
+      const len = Number(r.headers.get("content-length"));
+      if (Number.isFinite(len) && len > 0) {
+        const mb = len / (1024 * 1024);
+        size = mb >= 1 ? `${mb.toFixed(1)} MB` : `${(len / 1024).toFixed(0)} KB`;
+      }
+    } catch { /* noop */ }
+    onFile("raw_data.pdf", size);
     setPhase("extracting");
   };
 
@@ -178,36 +242,18 @@ function IngestStage({
       title="Ingest raw data"
       status={status}
       summary={<><Pill tone="muted">{uploadedName}</Pill><span className="tabular">{uploadedSize}</span></>}
+      onRerun={onRerun}
     >
       <div className="pt-4">
         <AnimatePresence mode="wait" initial={false}>
           {phase === "drop" && (
             <motion.div key="drop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }}>
               <div
-                className={cn(
-                  "rounded-2xl border border-dashed bg-canvas px-8 py-10 flex flex-col items-center gap-4 transition-colors cursor-pointer",
-                  dragOver ? "border-accent bg-accent-wash/40" : "border-hairline-strong"
-                )}
-                onClick={() => fileInputRef.current?.click()}
-                onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-                onDragLeave={() => setDragOver(false)}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  setDragOver(false);
-                  const file = e.dataTransfer.files?.[0];
-                  handleFile(file ?? null);
-                }}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") fileInputRef.current?.click(); }}
+                className="rounded-2xl border border-dashed border-hairline-strong bg-canvas/60 px-8 py-10 flex flex-col items-center gap-4 opacity-60 select-none cursor-not-allowed"
+                aria-disabled="true"
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => e.preventDefault()}
               >
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".pdf,.csv,.xlsx,.xls,application/pdf"
-                  className="hidden"
-                  onChange={(e) => handleFile(e.target.files?.[0] ?? null)}
-                />
                 <div className="w-11 h-11 rounded-xl bg-canvas-raised border border-hairline grid place-items-center">
                   <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#6B7280" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M12 17V3m0 0-5 5m5-5 5 5" />
@@ -216,16 +262,18 @@ function IngestStage({
                 </div>
                 <div className="text-center">
                   <div className="text-[14px] text-ink">Drop your process file here</div>
-                  <div className="text-[12px] text-muted mt-1">PDF, CSV or Excel — we&rsquo;ll extract the structured panel</div>
+                  <div className="text-[12px] text-muted mt-1">Upload not yet available — use the Praj sample below</div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}>
+                  <Button variant="ghost" size="sm" disabled>
                     Choose file
                   </Button>
-                  <Button variant="quiet" size="sm" onClick={(e) => { e.stopPropagation(); useSample(); }}>
-                    or use Praj sample
-                  </Button>
                 </div>
+              </div>
+              <div className="mt-3 flex items-center justify-center">
+                <Button variant="ghost" size="sm" onClick={useSample}>
+                  Use Praj sample
+                </Button>
               </div>
             </motion.div>
           )}
@@ -296,7 +344,7 @@ function IngestStage({
 
 /* ---------- 02 Structured ---------- */
 
-function StructuredStage({ status, onDone }: { status: "pending" | "active" | "done"; onDone: () => void }) {
+function StructuredStage({ status, onDone, onRerun }: { status: "pending" | "active" | "done"; onDone: () => void; onRerun: () => void }) {
   const [open, setOpen] = useState(false);
   const [sheets, setSheets] = useState<Record<string, Record<string, number | string>[]> | null>(null);
   const [sheetNames, setSheetNames] = useState<string[]>([]);
@@ -326,6 +374,7 @@ function StructuredStage({ status, onDone }: { status: "pending" | "active" | "d
         title="Structured data preview"
         status={status}
         summary={<><Pill tone="accent">Reviewed</Pill></>}
+        onRerun={onRerun}
       >
         <div className="pt-4 flex flex-col gap-4">
           <div className="rounded-2xl bg-canvas border border-hairline p-6">
@@ -341,7 +390,7 @@ function StructuredStage({ status, onDone }: { status: "pending" | "active" | "d
                     key={c}
                     onClick={() => setActiveSheet(c)}
                     className={cn(
-                      "press inline-flex shrink-0 h-6 px-2.5 rounded-full border text-[11.5px] tabular transition-colors",
+                      "press inline-flex items-center justify-center shrink-0 h-6 px-2.5 rounded-full border text-[11.5px] tabular transition-colors",
                       isActive
                         ? "bg-ink text-canvas border-ink"
                         : "bg-canvas-raised text-ink-soft border-hairline hover:border-hairline-strong"
@@ -389,11 +438,13 @@ function ConfigureStage({
   cfg,
   setCfg,
   onDone,
+  onRerun,
 }: {
   status: "pending" | "active" | "done";
   cfg: Config;
   setCfg: (c: Config) => void;
   onDone: () => void;
+  onRerun: () => void;
 }) {
   return (
     <Stage
@@ -409,6 +460,7 @@ function ConfigureStage({
           </span>
         </>
       }
+      onRerun={onRerun}
     >
       <div className="pt-5 grid grid-cols-1 md:grid-cols-2 gap-8">
         <div className="flex flex-col gap-6">
@@ -416,8 +468,10 @@ function ConfigureStage({
             label="Model type"
             value={cfg.modelType}
             options={[
-              { v: "mechanistic", label: "Mechanistic" },
               { v: "hybrid", label: "Hybrid" },
+              { v: "rnn", label: "RNN", disabled: true, suffix: "coming soon" },
+              { v: "node", label: "Neural ODE", disabled: true, suffix: "coming soon" },
+              { v: "pinn", label: "PINN", disabled: true, suffix: "coming soon" },
             ]}
             onChange={(v) => setCfg({ ...cfg, modelType: v as Config["modelType"] })}
           />
@@ -474,22 +528,9 @@ function ConfigureStage({
 
           <div>
             <Label>Split method</Label>
-            <div className="mt-2 flex bg-canvas rounded-full border border-hairline p-0.5 w-fit">
-              {(["random", "batchwise"] as const).map((v) => (
-                <button
-                  key={v}
-                  onClick={() => setCfg({ ...cfg, split: v })}
-                  className={cn(
-                    "press h-7 px-3.5 rounded-full text-[12px] transition-colors",
-                    cfg.split === v ? "bg-ink text-canvas" : "text-muted hover:text-ink"
-                  )}
-                >
-                  {v === "random" ? "Random" : "Batch-wise"}
-                </button>
-              ))}
-            </div>
-            <p className="mt-2 text-[11.5px] text-muted leading-relaxed max-w-[48ch]">
-              Batch-wise holds out entire batches — the harder, more honest test for downstream prediction.
+            <p className="mt-2 text-[13px] text-ink">Batch-wise</p>
+            <p className="mt-1 text-[11.5px] text-muted leading-relaxed max-w-[48ch]">
+              Entire batches are held out — the harder, more honest test for downstream prediction.
             </p>
           </div>
 
@@ -563,19 +604,36 @@ function Chip({ active, children, onClick }: { active: boolean; children: React.
 
 /* ---------- 04 Fit ---------- */
 
+type LossRow = { epoch: number; train_loss: number; val_loss: number };
+
 function FitStage({
   status,
   cfg,
   onDone,
+  onRerun,
 }: {
   status: "pending" | "active" | "done";
   cfg: Config;
   onDone: () => void;
+  onRerun: () => void;
 }) {
   const [phase, setPhase] = useState<"idle" | "running" | "ready">("idle");
   const [progress, setProgress] = useState(0);
   const [epoch, setEpoch] = useState(0);
-  const [loss, setLoss] = useState(1.0);
+  const [trainLoss, setTrainLoss] = useState(0);
+  const [valLoss, setValLoss] = useState(0);
+  const [lossRows, setLossRows] = useState<LossRow[]>([]);
+  const [metrics, setMetrics] = useState<Record<string, number | string>[]>([]);
+
+  // Load the real loss history and metrics CSVs once on mount.
+  useEffect(() => {
+    loadCSV<LossRow>("/data/loss_history.csv").then((rows) => setLossRows(rows));
+    loadCSV<Record<string, number | string>>("/data/test_set_metrics.csv").then((rows) =>
+      setMetrics(rows.filter((m) => m.Species !== "Species"))
+    );
+  }, []);
+
+  const lactic = metrics.find((m) => typeof m.Species === "string" && (m.Species as string).startsWith("Lactic"));
 
   useEffect(() => {
     if (phase !== "running") return;
@@ -584,14 +642,19 @@ function FitStage({
     const step = () => {
       const t = Math.min(1, (performance.now() - start) / DURATIONS.fit_ms);
       setProgress(t);
-      setEpoch(Math.floor(t * 200));
-      setLoss(Math.max(0.018, 1.0 * Math.exp(-3.2 * t) + 0.02 + (Math.random() - 0.5) * 0.01));
+      const rowIdx = Math.min(Math.floor(t * lossRows.length), lossRows.length - 1);
+      const row = lossRows[rowIdx];
+      if (row) {
+        setEpoch(row.epoch);
+        setTrainLoss(row.train_loss);
+        setValLoss(row.val_loss);
+      }
       if (t < 1) raf = requestAnimationFrame(step);
       else setPhase("ready");
     };
     raf = requestAnimationFrame(step);
     return () => cancelAnimationFrame(raf);
-  }, [phase]);
+  }, [phase, lossRows]);
 
   const activeConstraints = [
     cfg.constraints.mass && "mass balance",
@@ -605,7 +668,8 @@ function FitStage({
       index={4}
       title="Fit the model"
       status={status}
-      summary={<><Pill tone="accent">Converged</Pill><span className="tabular">200 epochs</span></>}
+      summary={<><Pill tone="accent">Converged</Pill><span className="tabular">{lossRows.length || 100} epochs</span></>}
+      onRerun={onRerun}
     >
       <div className="pt-5">
         <AnimatePresence mode="wait" initial={false}>
@@ -639,7 +703,7 @@ function FitStage({
                     <div>
                       <div className="text-[13.5px] text-ink">Training</div>
                       <div className="text-[11.5px] text-muted tabular">
-                        epoch {String(epoch).padStart(3, "0")} / 200 · loss {loss.toFixed(4)}
+                        epoch {String(epoch).padStart(3, "0")} / {String(Math.max(0, lossRows.length - 1)).padStart(2, "0")} · train {trainLoss.toFixed(4)} · val {valLoss.toFixed(4)}
                       </div>
                     </div>
                   </div>
@@ -667,8 +731,13 @@ function FitStage({
                   <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#6B9E88" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5 10 17 19 7" /></svg>
                 </div>
                 <div className="flex-1">
-                  <div className="text-[14px] text-ink">Fit complete — lactic acid R² 0.839</div>
-                  <div className="text-[12px] text-muted">Loss settled at {loss.toFixed(4)} · 200 epochs · {(DURATIONS.fit_ms / 1000).toFixed(1)}s</div>
+                  <div className="text-[14px] text-ink">
+                    Fit complete
+                    {lactic && <> — lactic acid R² {Number(lactic.R2).toFixed(3)}</>}
+                  </div>
+                  <div className="text-[12px] text-muted">
+                    Final val loss {(lossRows[lossRows.length - 1]?.val_loss ?? valLoss).toFixed(4)} · train {(lossRows[lossRows.length - 1]?.train_loss ?? trainLoss).toFixed(4)} · {lossRows.length} epochs
+                  </div>
                 </div>
                 <Button onClick={onDone}>See results →</Button>
               </div>
@@ -682,7 +751,7 @@ function FitStage({
 
 /* ---------- 05 Results ---------- */
 
-function ResultsStage({ status, onToScenario }: { status: "pending" | "active" | "done"; onToScenario: () => void }) {
+function ResultsStage({ status, onToScenario, onRerun }: { status: "pending" | "active" | "done"; onToScenario: () => void; onRerun: () => void }) {
   const [rows, setRows] = useState<Record<string, number | string>[]>([]);
   const [metrics, setMetrics] = useState<Record<string, number | string>[]>([]);
   const [species, setSpecies] = useState<SpeciesKey>("P");
@@ -695,7 +764,10 @@ function ResultsStage({ status, onToScenario }: { status: "pending" | "active" |
       const batches = Array.from(new Set(r.map((x) => Number((x as Record<string, number | string>).Batch)))).filter((n) => Number.isFinite(n)).sort((a, b) => a - b);
       if (batches.length && batch == null) setBatch(batches[0]);
     });
-    loadCSV("/data/test_set_metrics.csv").then((r) => setMetrics(r as Record<string, number | string>[]));
+    loadCSV("/data/test_set_metrics.csv").then((r) => {
+      // Filter out any duplicate header rows the CSV may contain.
+      setMetrics((r as Record<string, number | string>[]).filter((m) => m.Species !== "Species"));
+    });
   }, [status]);
 
   const product = metrics.find((m) => typeof m.Species === "string" && (m.Species as string).startsWith("Lactic"));
@@ -703,7 +775,7 @@ function ResultsStage({ status, onToScenario }: { status: "pending" | "active" |
   const speciesLabel = SPECIES.find((s) => s.key === species);
 
   return (
-    <Stage index={5} title="Results" status={status}>
+    <Stage index={5} title="Results" status={status} onRerun={onRerun}>
       <div className="pt-5 grid grid-cols-12 gap-6">
         <div className="col-span-12 lg:col-span-7 rounded-2xl bg-canvas border border-hairline">
           <div className="flex flex-wrap items-center justify-between px-5 pt-4 pb-3 border-b border-hairline gap-x-4 gap-y-2">

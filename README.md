@@ -1,12 +1,12 @@
-# Praj — Bioprocess Studio
+# Lemnisca — Bioprocess Studio
 
-A demo front-end for the Praj case study. Three surfaces:
+A demo front-end for the Praj bioprocess case study. Three surfaces:
 
-1. **Model Fitting** — upload a process PDF, preview the structured extract, configure a hybrid model (system · constraints · train/test split), fit, and review per-batch trajectory plots + metrics.
-2. **Scenario 1 — Batch tracking** — watch a live fermentation against its golden trajectory; when measurements drift at t=15 h, compare four feed-flowrate interventions and see why 0.5× is recommended.
-3. **Scenario 2 — Tech transfer** — placeholder card for the next workflow.
+1. **Process data** (`#process-data`) — upload a process PDF, preview the structured extract from `structured_data.xlsx`, configure a hybrid model (system · constraints · train/test split), fit against `loss_history.csv`, and review per-batch trajectory plots + metrics from the test-set files.
+2. **What-if simulator** (`#what-if-simulator`) — explore predicted trajectories across reactor scale × dilution rate × glucose fraction, drawn from `what_if_grid.json`. Initial conditions come from `_meta.fixed_ICs`.
+3. **Anomaly rescue** (`#anomaly-rescue`) — a live batch drifts from the golden trajectory; compare five feed-flowrate rescue scenarios (0.3× / 0.6× / 1× / 1.3× / 1.6×) against the golden curve and pick one. 0.6× is flagged as the recommended rescue.
 
-Built with Vite + React + TypeScript + Tailwind v4 + Framer Motion + SheetJS.
+Built with Vite + React + TypeScript + Tailwind v4 + Framer Motion + SheetJS + Zustand.
 
 ## Running
 
@@ -16,7 +16,7 @@ npm install
 npm run dev
 ```
 
-Open <http://localhost:5173/>.
+Open <http://localhost:5173/>. Below 768 px a mobile gate asks the user to switch to desktop / tablet.
 
 Production build:
 
@@ -30,50 +30,66 @@ npm run preview
 ```
 praaj_demo2/
 ├── app/                     # Vite + React front-end
-│   ├── public/data/         # CSVs + PDF + xlsx served at runtime (copied from /data)
+│   ├── public/data/         # CSVs · XLSX · JSON · PDF served by the dev server
 │   └── src/
-│       ├── surfaces/        # Fit.tsx, Scenario1.tsx, Scenario2.tsx — one per top-level tab
-│       ├── components/      # Rail, Stage, StructuredSheet, BatchPlot, TrajectoryPlot, ui
-│       └── lib/             # csv loader, xlsx loader, zustand store, cn helper
-├── data/                    # Gaurav's raw drop (source of truth — not modified)
-└── docs/
-    └── decisions.md         # Per-UI-choice provenance: meeting notes vs. data vs. judgment
+│       ├── surfaces/        # Fit.tsx · Scenario1.tsx · Scenario2.tsx — one per top-level tab
+│       ├── components/      # Rail, Stage, StructuredPlot, BatchPlot, TrajectoryPlot, WhatIfPlot, ui
+│       └── lib/             # csv loader · xlsx loader · whatif loader · zustand store · cn helper
+├── docs/
+│   └── decisions.md         # Per-UI-choice provenance: meeting notes vs. data vs. judgment
+└── html_demo/               # Earlier static HTML prototype (reference only)
 ```
 
 ## Data
 
-Everything animated or plotted is backed by one of the CSVs / xlsx in `/data` (also mirrored under `app/public/data/` for the dev server). No numbers are fabricated.
+Everything plotted or animated is read from a file under `app/public/data/` at runtime. The schema (file names, column names, JSON shape) is pinned in code; every displayed *value* is read fresh on each load.
 
 | File | Used in |
 |---|---|
-| `raw_data.pdf` | Ingest stage — upload target |
-| `structured_data.xlsx` | Structured Data Preview (Summary + Batch_1…10) |
-| `test_set_predictions.csv` | Results — trajectory plots per species per batch |
-| `test_set_metrics.csv` | Results — metrics table (MAE / RMSE / R²) |
-| `golden_batch_trajectory.csv` | Scenario 1 — golden curve |
-| `suboptimal_noisy_measurements.csv` | Scenario 1 — noisy run 0 → 15 h |
-| `scenario_{1.0,0.8,0.6,0.5}x_F.csv` | Scenario 1 — four intervention projections |
+| `raw_data.pdf` | Process data — ingest sample (size read via HEAD `Content-Length`) |
+| `structured_data.xlsx` | Structured preview (Summary + Batch_1…n) and `StructuredPlot` small-multiples |
+| `loss_history.csv` | Fit stage — per-epoch train / val loss animation + final loss readout |
+| `test_set_predictions.csv` | Results — per-species × per-batch trajectory plots |
+| `test_set_metrics.csv` | Results metrics cards + the "lactic acid R²" headline on fit-complete |
+| `what_if_grid.json` | What-if simulator — `scale → D → GF → {F, X, S, P, M, O2}` grid + `_meta` (t_arr, fixed_ICs, grid axes) |
+| `golden_batch_trajectory.csv` | Anomaly rescue — golden curve with ±95% band |
+| `suboptimal_noisy_measurements.csv` | Anomaly rescue — the live-batch noisy stream |
+| `rnn_scenario_{0.3,0.6,1,1.3,1.6}x_F.csv` | Anomaly rescue — five feed-flowrate rescue projections (anomaly onset = first row's `Time (h)`) |
 
-See `docs/decisions.md` for a full per-decision breakdown of what came from Gaurav's README, the 21 Apr meeting notes, or UX judgment.
+### What's fixed in code vs. read from files
+
+**Fixed schema (the contract):** file names / paths, column names, JSON depth, the set of intervention multipliers, species colors, which multiplier is flagged "recommended".
+
+**Read from the files on every load:** every concentration, time, loss, epoch count, R² / MAE / RMSE, initial condition (X₀, P₀, O₂, total substrate, feed concentration), time axis, scale / D / GF grid, cell feed flowrate F, anomaly onset time, PDF byte length. Intervention labels ("Reduce feed 70%", etc.) are computed from the multiplier rather than typed.
+
+See `docs/decisions.md` for the full per-decision breakdown.
+
+## State & routing
+
+- Surface selection uses URL hashes (`#process-data` / `#what-if-simulator` / `#anomaly-rescue`) wired through a Zustand store in `app/src/lib/store.ts`.
+- `modelFitted` persists in `localStorage`, so the header pill ("Hybrid model loaded" vs. "Reference model") survives refresh.
+- The full Fit workflow (active stage, completed stages, uploaded-file info) persists under `fitState`; each stage has a **Rerun** pill that clears it and everything downstream.
+- Anomaly rescue phase / selected intervention / selected species persist under `s2State`.
 
 ## Tuning the demo
 
-Both long-running animations have configurable durations at the top of `app/src/surfaces/Fit.tsx`:
+Long-running animation durations live at the top of `app/src/surfaces/Fit.tsx`:
 
 ```ts
 export const DURATIONS = {
-  ingest_ms: 2600, // PDF extraction progress
-  fit_ms: 7200,    // model fitting progress
+  ingest_ms: 4800, // PDF extraction progress
+  fit_ms: 11000,   // loss-curve scrub
 };
 ```
 
-The Scenario 1 play-back duration is `duration = 3200` in `app/src/surfaces/Scenario1.tsx`.
+Scenario 2 stream duration (`duration = 5800`) is in `app/src/surfaces/Scenario2.tsx`.
 
-## Known theatrical elements
+## Honest caveats
 
-Flagged honestly — see `docs/decisions.md` for the full list.
+Flagged plainly — see `docs/decisions.md` for context.
 
-- Ingest extraction is a timed progress animation, not a real LLM pipeline.
-- Fit training is a scripted progress bar against the shipped metrics.
-- Scenario 1 IC inputs (temperature / substrate / biomass) have no effect on the curves — the golden trajectory is fixed per Gaurav's CSV.
-- "Anomaly detection" at t=15 h is hardcoded (it's where the noisy CSV ends), not computed.
+- Ingest "extraction" is a timed progress animation, not a real LLM pipeline; the underlying `structured_data.xlsx` is loaded in parallel for real stats.
+- Fit "training" is a scripted progress bar that scrubs through the shipped `loss_history.csv`, it does not train the model live.
+- Anomaly onset is *not* detected — it's read as the first `Time (h)` in any loaded `rnn_scenario_*.csv` (all five share the same start).
+- Model-type selector lets you pick Hybrid; RNN / Neural ODE / PINN options are present but disabled ("coming soon").
+- Biological system selector only enables Lactic acid; Isobutanol / PHB are present but disabled.

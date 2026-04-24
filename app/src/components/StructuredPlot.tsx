@@ -4,11 +4,12 @@ import { motion } from "framer-motion";
 type Row = Record<string, number | string>;
 
 const CHANNELS = [
-  { key: "Biomass X (g/L)", label: "Biomass X", color: "#1F77B4", unit: "g/L" },
-  { key: "Glucose S (g/L)", label: "Glucose S", color: "#1C1E22", unit: "g/L" },
-  { key: "Lactic Acid P (g/L)", label: "Lactic P", color: "#2CA02C", unit: "g/L" },
-  { key: "Maltose M (g/L)", label: "Maltose M", color: "#D62728", unit: "g/L" },
-  { key: "Volume V (L)", label: "Volume V", color: "#9467BD", unit: "L" },
+  { key: "Biomass X (g/L)",   label: "Biomass X",  color: "#1F77B4", unit: "g/L"  },
+  { key: "Glucose S (g/L)",   label: "Glucose S",  color: "#1C1E22", unit: "g/L"  },
+  { key: "Lactic Acid P (g/L)", label: "Lactic P", color: "#2CA02C", unit: "g/L"  },
+  { key: "Maltose M (g/L)",   label: "Maltose M",  color: "#D62728", unit: "g/L"  },
+  { key: "Dissolved O2 (g/L)", label: "DO₂",       color: "#17BECF", unit: "g/L"  },
+  { key: "Volume V (L)",      label: "Volume V",   color: "#9467BD", unit: "L"    },
 ] as const;
 
 const PAD = { l: 34, r: 10, t: 14, b: 22 };
@@ -24,17 +25,15 @@ function niceMax(raw: number): number {
   return Math.ceil(raw / step) * step;
 }
 
-function interp(pts: { t: number; v: number }[], t: number): number | null {
+function nearest(pts: { t: number; v: number }[], t: number): { t: number; v: number } | null {
   if (!pts.length) return null;
-  if (t <= pts[0].t) return pts[0].v;
-  if (t >= pts[pts.length - 1].t) return pts[pts.length - 1].v;
+  let best = pts[0];
+  let bestD = Math.abs(best.t - t);
   for (let i = 1; i < pts.length; i++) {
-    if (t <= pts[i].t) {
-      const r = (t - pts[i - 1].t) / (pts[i].t - pts[i - 1].t);
-      return pts[i - 1].v + r * (pts[i].v - pts[i - 1].v);
-    }
+    const d = Math.abs(pts[i].t - t);
+    if (d < bestD) { best = pts[i]; bestD = d; }
   }
-  return null;
+  return best;
 }
 
 function Panel({
@@ -61,13 +60,7 @@ function Panel({
   const xTicks = [0, tMax];
   const fmt = (n: number) => (yMax < 10 ? n.toFixed(1) : n.toFixed(0));
 
-  const path = data.length
-    ? data.map((d, j) => {
-        const v = d.vals[ch.key];
-        if (!Number.isFinite(v)) return "";
-        return `${j === 0 ? "M" : "L"} ${xScale(d.t).toFixed(2)} ${yScale(v).toFixed(2)}`;
-      }).filter(Boolean).join(" ")
-    : "";
+  const pts2 = data.filter((d) => Number.isFinite(d.vals[ch.key]));
 
   const pts = useMemo(() => data.map((d) => ({ t: d.t, v: d.vals[ch.key] })).filter((p) => Number.isFinite(p.v)), [data, ch.key]);
 
@@ -81,8 +74,9 @@ function Panel({
     onHover(Math.max(0, Math.min(tMax, ((xPx - PAD.l) / (W - PAD.l - PAD.r)) * tMax)));
   };
 
-  const hoverX = hoverT != null ? xScale(hoverT) : null;
-  const hoverVal = hoverT != null ? interp(pts, hoverT) : null;
+  const snapped = hoverT != null ? nearest(pts, hoverT) : null;
+  const hoverX = snapped != null ? xScale(snapped.t) : null;
+  const hoverVal = snapped != null ? snapped.v : null;
 
   return (
     <div className="rounded-lg bg-canvas-raised/60 border border-hairline/60 p-2 relative">
@@ -116,17 +110,19 @@ function Panel({
             {x.toFixed(0)}h
           </text>
         ))}
-        <motion.path
-          d={path}
-          fill="none"
-          stroke={ch.color}
-          strokeWidth={1.6}
-          strokeLinecap="round"
-          opacity={0.92}
-          initial={{ pathLength: 0 }}
-          animate={{ pathLength: 1 }}
-          transition={{ duration: 0.9, delay: animDelay, ease: [0.23, 1, 0.32, 1] }}
-        />
+        {pts2.map((d, j) => (
+          <motion.circle
+            key={j}
+            cx={xScale(d.t)}
+            cy={yScale(d.vals[ch.key])}
+            r={1.8}
+            fill={ch.color}
+            opacity={0.75}
+            initial={{ opacity: 0, scale: 0 }}
+            animate={{ opacity: 0.75, scale: 1 }}
+            transition={{ duration: 0.18, delay: animDelay + j * 0.004, ease: [0.23, 1, 0.32, 1] }}
+          />
+        ))}
 
         {hoverX != null && hoverVal != null && (
           <g pointerEvents="none">
@@ -136,7 +132,7 @@ function Panel({
         )}
       </svg>
 
-      {hoverT != null && hoverX != null && hoverVal != null && (
+      {snapped != null && hoverX != null && hoverVal != null && (
         <div
           className="pointer-events-none absolute rounded-md bg-canvas-raised/95 backdrop-blur-sm border border-hairline shadow-[0_2px_10px_rgba(28,30,34,0.07)] px-2 py-1 text-[10.5px] tabular"
           style={{
@@ -145,8 +141,8 @@ function Panel({
             transform: hoverX > W * 0.65 ? "translateX(calc(-100% - 14px))" : undefined,
           }}
         >
-          <span className="text-muted">{hoverT.toFixed(1)}h · </span>
-          <span className="text-ink">{hoverVal.toFixed(2)}</span>
+          <span className="text-muted">{String(Number(snapped.t.toFixed(5)))}h · </span>
+          <span className="text-ink">{String(Number(hoverVal.toFixed(5)))}</span>
           <span className="text-muted-soft"> {ch.unit}</span>
         </div>
       )}

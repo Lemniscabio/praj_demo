@@ -6,39 +6,38 @@ import { loadWhatIfGrid, type WhatIfGrid } from "../lib/whatif";
 import { useApp } from "../lib/store";
 import { cn } from "../lib/cn";
 
-// Fixed initial conditions from the README.
-const INITIAL = {
-  temperature: 37,   // °C
-  biomass: 2.0,      // g/L (X₀)
-  totalSubstrate: 140, // g/L — glucose + maltose combined
-};
-
 export function Scenario1Surface() {
   const modelFitted = useApp((s) => s.modelFitted);
   const setSurface = useApp((s) => s.setSurface);
 
   const [grid, setGrid] = useState<WhatIfGrid | null>(null);
-  const [flowIdx, setFlowIdx] = useState(0); // index into grid.flowKeys
-  const [ratioIdx, setRatioIdx] = useState(0); // index into grid.ratioKeys
+  const [scaleIdx, setScaleIdx] = useState(0);
+  const [dIdx, setDIdx] = useState(0);
+  const [gfIdx, setGfIdx] = useState(0);
 
   useEffect(() => {
     loadWhatIfGrid().then((g) => {
       setGrid(g);
-      // Default to the middle of each axis.
-      setFlowIdx(Math.floor(g.flowKeys.length / 2));
-      setRatioIdx(Math.floor(g.ratioKeys.length / 2));
+      // Default to the production-scale reactor and the middle of each grid axis.
+      const prod = g.scaleKeys.findIndex((k) => Number(k) === 10000);
+      setScaleIdx(prod >= 0 ? prod : 0);
+      setDIdx(Math.floor(g.dKeys.length / 2));
+      setGfIdx(Math.floor(g.gfKeys.length / 2));
     });
   }, []);
 
-  const flowKey = grid?.flowKeys[flowIdx];
-  const ratioKey = grid?.ratioKeys[ratioIdx];
-  const cell = useMemo(() => {
-    if (!grid || !flowKey || !ratioKey) return null;
-    return grid.cells[flowKey][ratioKey];
-  }, [grid, flowKey, ratioKey]);
+  const scaleKey = grid?.scaleKeys[scaleIdx];
+  const dKey = grid?.dKeys[dIdx];
+  const gfKey = grid?.gfKeys[gfIdx];
 
-  const flowrate = flowKey ? Number(flowKey) : 0;
-  const ratio = ratioKey ? Number(ratioKey) : 0;
+  const cell = useMemo(() => {
+    if (!grid || !scaleKey || !dKey || !gfKey) return null;
+    return grid.cells[scaleKey][dKey][gfKey];
+  }, [grid, scaleKey, dKey, gfKey]);
+
+  const D = dKey ? Number(dKey) : 0;
+  const GF = gfKey ? Number(gfKey) : 0;
+  const scale = scaleKey ? Number(scaleKey) : 0;
 
   return (
     <div className="px-10 py-10 max-w-[1360px] mx-auto">
@@ -46,7 +45,7 @@ export function Scenario1Surface() {
         <SectionTitle
           eyebrow="Scenario 01"
           title="What-if simulator"
-          sub="Explore predicted batch trajectories across feed flowrate and glucose / maltose ratio. Trajectories are drawn as mean ± 2σ bands."
+          sub="Explore predicted batch trajectories across reactor scale, dilution rate, and glucose fraction. Trajectories are drawn as mean ± 2σ bands."
         />
         <Pill tone={modelFitted ? "accent" : "muted"}>
           <span className={cn("w-1.5 h-1.5 rounded-full", modelFitted ? "bg-accent" : "bg-muted-soft")} />
@@ -80,7 +79,10 @@ export function Scenario1Surface() {
                   <div>
                     <div className="text-[11px] uppercase tracking-[0.12em] text-muted">Simulated trajectories</div>
                     <div className="serif text-[17px] text-ink leading-tight mt-0.5">
-                      Feed {flowrate.toFixed(3)} L/h · G/M ratio {ratio.toFixed(2)}
+                      {formatScale(scale)} · D {D.toFixed(4)} h⁻¹ · GF {GF.toFixed(2)}
+                    </div>
+                    <div className="text-[11.5px] text-muted tabular mt-0.5">
+                      Feed F = {cell.F.toFixed(3)} L/h
                     </div>
                   </div>
                   <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-soft tabular">
@@ -101,46 +103,67 @@ export function Scenario1Surface() {
               <div className="rounded-2xl bg-canvas-raised border border-hairline p-5">
                 <div className="text-[11px] uppercase tracking-[0.12em] text-muted mb-3">Controls</div>
 
+                <div>
+                  <div className="flex items-baseline justify-between mb-2">
+                    <div className="text-[11.5px] text-muted">Reactor scale</div>
+                    <div className="tabular serif text-[16px] text-ink">{formatScale(scale)}</div>
+                  </div>
+                  <div className="flex gap-1.5 flex-wrap">
+                    {grid.scaleKeys.map((k, i) => (
+                      <button
+                        key={k}
+                        onClick={() => setScaleIdx(i)}
+                        className={cn(
+                          "press tabular h-7 px-2.5 rounded-full border text-[11.5px] transition-colors",
+                          i === scaleIdx
+                            ? "bg-ink text-canvas border-ink"
+                            : "bg-canvas text-ink-soft border-hairline hover:border-hairline-strong"
+                        )}
+                      >
+                        {formatScale(Number(k))}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="h-px bg-hairline my-4" />
+
                 <SliderRow
-                  label="Feed flowrate"
-                  unit="L/h"
-                  value={flowrate}
-                  display={flowrate.toFixed(3)}
-                  min={0}
-                  max={grid.flowKeys.length - 1}
-                  step={1}
-                  index={flowIdx}
-                  onChange={setFlowIdx}
-                  minLabel={Number(grid.flowKeys[0]).toFixed(2)}
-                  maxLabel={Number(grid.flowKeys[grid.flowKeys.length - 1]).toFixed(2)}
+                  label="Dilution rate (D)"
+                  unit="h⁻¹"
+                  display={D.toFixed(4)}
+                  max={grid.dKeys.length - 1}
+                  index={dIdx}
+                  onChange={setDIdx}
+                  minLabel={Number(grid.dKeys[0]).toFixed(4)}
+                  maxLabel={Number(grid.dKeys[grid.dKeys.length - 1]).toFixed(4)}
                 />
 
                 <div className="h-px bg-hairline my-4" />
 
                 <SliderRow
-                  label="Glucose / maltose ratio"
+                  label="Glucose fraction (GF)"
                   unit=""
-                  value={ratio}
-                  display={ratio.toFixed(2)}
-                  min={0}
-                  max={grid.ratioKeys.length - 1}
-                  step={1}
-                  index={ratioIdx}
-                  onChange={setRatioIdx}
-                  minLabel={Number(grid.ratioKeys[0]).toFixed(2)}
-                  maxLabel={Number(grid.ratioKeys[grid.ratioKeys.length - 1]).toFixed(2)}
+                  display={GF.toFixed(2)}
+                  max={grid.gfKeys.length - 1}
+                  index={gfIdx}
+                  onChange={setGfIdx}
+                  minLabel={Number(grid.gfKeys[0]).toFixed(2)}
+                  maxLabel={Number(grid.gfKeys[grid.gfKeys.length - 1]).toFixed(2)}
                 />
               </div>
 
               <div className="rounded-2xl bg-canvas-raised border border-hairline p-5">
                 <div className="text-[11px] uppercase tracking-[0.12em] text-muted mb-3">Initial conditions</div>
                 <div className="space-y-2.5 text-[13px]">
-                  <Row label="Temperature" value={`${INITIAL.temperature} °C`} />
-                  <Row label="Biomass X₀" value={`${INITIAL.biomass.toFixed(1)} g/L`} />
-                  <Row label="Total substrate" value={`${INITIAL.totalSubstrate} g/L`} />
+                  <Row label="Biomass X₀" value={`${grid.meta.fixed_ICs.X0.toFixed(1)} g/L`} />
+                  <Row label="Lactic acid P₀" value={`${grid.meta.fixed_ICs.P0.toFixed(1)} g/L`} />
+                  <Row label="Dissolved O₂" value={`${grid.meta.fixed_ICs.O2_0.toFixed(3)} mg/L`} />
+                  <Row label="Total substrate" value={`${grid.meta.fixed_ICs.total_sub.toFixed(0)} g/L`} />
+                  <Row label="Feed concentration" value={`${grid.meta.fixed_ICs.C_feed_total.toFixed(0)} g/L`} />
                 </div>
                 <p className="mt-4 text-[11px] text-muted-soft leading-relaxed">
-                  Fixed per the dataset README. Only feed flowrate and glucose / maltose ratio vary across the grid.
+                  Fixed from the dataset metadata. Only scale, D, and GF vary across the grid.
                 </p>
               </div>
             </div>
@@ -157,13 +180,16 @@ export function Scenario1Surface() {
   );
 }
 
+function formatScale(l: number): string {
+  if (l >= 1000) return `${(l / 1000).toLocaleString()} m³`;
+  return `${l} L`;
+}
+
 function SliderRow({
   label,
   unit,
   display,
-  min,
   max,
-  step,
   index,
   onChange,
   minLabel,
@@ -171,11 +197,8 @@ function SliderRow({
 }: {
   label: string;
   unit: string;
-  value: number;
   display: string;
-  min: number;
   max: number;
-  step: number;
   index: number;
   onChange: (v: number) => void;
   minLabel: string;
@@ -192,9 +215,9 @@ function SliderRow({
       </div>
       <input
         type="range"
-        min={min}
+        min={0}
         max={max}
-        step={step}
+        step={1}
         value={index}
         onChange={(e) => onChange(Number(e.target.value))}
         className="w-full accent-[color:var(--color-ink)]"

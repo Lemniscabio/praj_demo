@@ -7,10 +7,25 @@ import { useApp } from "../lib/store";
 import { cn } from "../lib/cn";
 
 type Phase = "ready" | "playing" | "anomaly" | "intervention" | "compare";
+type SpeciesKey = "X" | "S" | "P" | "M";
 
-// Five feed flowrate interventions per README — each provided with an error
-// envelope (upper/lower 95 %). 0.6× is the recommended action.
-const INTERVENTIONS: {
+const SPECIES: { key: SpeciesKey; label: string; unit: string }[] = [
+  { key: "X", label: "Biomass X", unit: "g/L" },
+  { key: "S", label: "Glucose S", unit: "g/L" },
+  { key: "P", label: "Lactic P",  unit: "g/L" },
+  { key: "M", label: "Maltose M", unit: "g/L" },
+];
+
+const SPECIES_COLOR: Record<SpeciesKey, string> = {
+  X: "#1F77B4",
+  S: "#1C1E22",
+  P: "#2CA02C",
+  M: "#D62728",
+};
+
+// Intervention file set — id is read back from the filename, label from the
+// multiplier. 0.6× is flagged as the recommended rescue.
+type Intervention = {
   id: string;
   mult: number;
   file: string;
@@ -18,94 +33,187 @@ const INTERVENTIONS: {
   detail: string;
   color: string;
   recommended?: boolean;
-}[] = [
-  { id: "0.6", mult: 0.6, file: "/data/scenario_rnn_0.6x_F.csv", label: "Reduce feed 40%", detail: "0.6× — recommended rescue", color: "#2CA02C", recommended: true },
-  { id: "0.8", mult: 0.8, file: "/data/scenario_rnn_0.8x_F.csv", label: "Reduce feed 20%", detail: "0.8× — gentle correction",   color: "#1F77B4" },
-  { id: "1",   mult: 1.0, file: "/data/scenario_rnn_1x_F.csv",   label: "No change",       detail: "1.0× — maintain current",    color: "#D62728" },
-  { id: "1.2", mult: 1.2, file: "/data/scenario_rnn_1.2x_F.csv", label: "Increase feed 20%", detail: "1.2× — push feed up",      color: "#FF7F0E" },
-  { id: "1.4", mult: 1.4, file: "/data/scenario_rnn_1.4x_F.csv", label: "Increase feed 40%", detail: "1.4× — strongest push",    color: "#9467BD" },
-];
-
-type RowTraj = {
-  "Time (h)": number;
-  "P_mean (g/L)": number;
-  "P_std (g/L)": number;
-  "P_lower95 (g/L)": number;
-  "P_upper95 (g/L)": number;
 };
 
-function rowsToPoints(rows: RowTraj[]): Point[] {
-  return rows.map((r) => ({
-    t: r["Time (h)"],
-    p: r["P_mean (g/L)"],
-    lo: r["P_lower95 (g/L)"],
-    hi: r["P_upper95 (g/L)"],
-  }));
+function labelFromMult(mult: number): string {
+  if (mult === 1) return "No change";
+  if (mult < 1) return `Reduce feed ${Math.round((1 - mult) * 100)}%`;
+  return `Increase feed ${Math.round((mult - 1) * 100)}%`;
 }
+
+function detailFromMult(mult: number, recommended: boolean): string {
+  if (recommended) return "recommended rescue";
+  if (mult === 1) return "maintain current";
+  if (mult < 1) return mult <= 0.3 ? "strong cut" : "moderate cut";
+  return mult >= 1.6 ? "strongest push" : "push feed up";
+}
+
+const INTERVENTION_SPECS: { mult: number; color: string; recommended?: boolean }[] = [
+  { mult: 0.3, color: "#1F77B4" },
+  { mult: 0.6, color: "#2CA02C", recommended: true },
+  { mult: 1.0, color: "#D62728" },
+  { mult: 1.3, color: "#FF7F0E" },
+  { mult: 1.6, color: "#9467BD" },
+];
+
+const INTERVENTIONS: Intervention[] = INTERVENTION_SPECS.map((s) => {
+  const id = s.mult === 1 ? "1" : String(s.mult);
+  return {
+    id,
+    mult: s.mult,
+    file: `/data/rnn_scenario_${id}x_F.csv`,
+    label: labelFromMult(s.mult),
+    detail: detailFromMult(s.mult, !!s.recommended),
+    color: s.color,
+    recommended: s.recommended,
+  };
+});
+
+// Raw CSV row types
+type GoldenRow = Record<string, number | string>;
+type NoisyRow  = Record<string, number | string>;
+type ScenRow   = Record<string, number | string>;
+
+function goldenPoints(rows: GoldenRow[], sp: SpeciesKey): Point[] {
+  return rows
+    .map((r) => ({
+      t:  Number(r["Time (h)"]),
+      p:  Number(r[`${sp}_mean (g/L)`]),
+      lo: Number(r[`${sp}_lower95 (g/L)`]),
+      hi: Number(r[`${sp}_upper95 (g/L)`]),
+    }))
+    .filter((p) => Number.isFinite(p.t) && Number.isFinite(p.p))
+    .sort((a, b) => a.t - b.t);
+}
+
+function noisyPoints(rows: NoisyRow[], sp: SpeciesKey): Point[] {
+  return rows
+    .map((r) => ({ t: Number(r["Time (h)"]), p: Number(r[`${sp}_noisy (g/L)`]) }))
+    .filter((p) => Number.isFinite(p.t) && Number.isFinite(p.p))
+    .sort((a, b) => a.t - b.t);
+}
+
+function scenPoints(rows: ScenRow[], sp: SpeciesKey): Point[] {
+  return rows
+    .map((r) => ({
+      t:  Number(r["Time (h)"]),
+      p:  Number(r[`${sp}_mean (g/L)`]),
+      lo: Number(r[`${sp}_lower95 (g/L)`]),
+      hi: Number(r[`${sp}_upper95 (g/L)`]),
+    }))
+    .filter((p) => Number.isFinite(p.t) && Number.isFinite(p.p))
+    .sort((a, b) => a.t - b.t);
+}
+
+/* ── Persistence ─────────────────────────────────────────────────────── */
+
+const S2_KEY = "s2State";
+
+function loadS2(): { phase: Phase; selected: string | null; species: SpeciesKey } | null {
+  try {
+    const raw = localStorage.getItem(S2_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch { return null; }
+}
+
+function saveS2(phase: Phase, selected: string | null, species: SpeciesKey) {
+  try {
+    const savedPhase: Phase = phase === "playing" ? "ready" : phase;
+    localStorage.setItem(S2_KEY, JSON.stringify({ phase: savedPhase, selected, species }));
+  } catch { /* noop */ }
+}
+
+/* ── Surface ──────────────────────────────────────────────────────────── */
 
 export function Scenario2Surface() {
   const modelFitted = useApp((s) => s.modelFitted);
 
-  const [phase, setPhase] = useState<Phase>("ready");
-  const [noisyIdx, setNoisyIdx] = useState(0);
-  const [selected, setSelected] = useState<string | null>("");
+  const saved = useRef(loadS2()).current;
 
-  const [golden, setGolden] = useState<Point[]>([]);
-  const [noisy, setNoisy] = useState<Point[]>([]);
-  const [predictions, setPredictions] = useState<Record<string, Point[]>>({});
+  const [phase,       setPhaseRaw]    = useState<Phase>(saved?.phase ?? "ready");
+  const [noisyIdx,    setNoisyIdx]    = useState(0);
+  const [selected,    setSelectedRaw] = useState<string | null>(saved?.selected ?? "");
+  const [species,     setSpeciesRaw]  = useState<SpeciesKey>(saved?.species ?? "P");
+
+  // Wrapped setters that also persist
+  const setPhase   = (p: Phase)           => { setPhaseRaw(p);   saveS2(p, selected, species); };
+  const setSelected= (s: string | null)   => { setSelectedRaw(s); saveS2(phase, s, species); };
+  const setSpecies = (sp: SpeciesKey)     => { setSpeciesRaw(sp); saveS2(phase, selected, sp); };
+
+  // Raw CSV data (loaded once)
+  const [goldenRows,  setGoldenRows]  = useState<GoldenRow[]>([]);
+  const [noisyRows,   setNoisyRows]   = useState<NoisyRow[]>([]);
+  const [scenRows,    setScenRows]    = useState<Record<string, ScenRow[]>>({});
 
   useEffect(() => {
-    loadCSV<RowTraj>("/data/golden_batch_trajectory.csv").then((rows) => setGolden(rowsToPoints(rows)));
-    loadCSV<{ "Time (h)": number; "Lactic Acid P (g/L)": number }>("/data/suboptimal_noisy_measurements.csv").then((rows) =>
-      setNoisy(rows.map((r) => ({ t: r["Time (h)"], p: r["Lactic Acid P (g/L)"] })))
-    );
+    loadCSV<GoldenRow>("/data/golden_batch_trajectory.csv").then(setGoldenRows);
+    loadCSV<NoisyRow>("/data/suboptimal_noisy_measurements.csv").then((rows) => {
+      setNoisyRows(rows);
+      if (saved?.phase && saved.phase !== "ready") setNoisyIdx(rows.length);
+    });
     Promise.all(
       INTERVENTIONS.map((iv) =>
-        loadCSV<RowTraj>(iv.file).then((rows) => [iv.id, rowsToPoints(rows)] as const)
+        loadCSV<ScenRow>(iv.file).then((rows) => [iv.id, rows] as const)
       )
-    ).then((pairs) => setPredictions(Object.fromEntries(pairs)));
+    ).then((pairs) => setScenRows(Object.fromEntries(pairs)));
   }, []);
 
+  // Derive Point arrays from raw rows + selected species
+  const golden = useMemo(() => goldenPoints(goldenRows, species), [goldenRows, species]);
+  const noisy  = useMemo(() => noisyPoints(noisyRows,  species), [noisyRows,  species]);
+  const predictionList = useMemo(
+    () => INTERVENTIONS.map((iv) => ({
+      id:          iv.id,
+      label:       iv.label,
+      color:       iv.color,
+      recommended: iv.recommended,
+      points:      scenRows[iv.id] ? scenPoints(scenRows[iv.id], species) : [],
+    })),
+    [scenRows, species]
+  );
+
+  /* Streaming animation */
   const rafRef = useRef<number | null>(null);
   useEffect(() => {
     if (phase !== "playing") return;
-    const start = performance.now();
-    const total = noisy.length;
+    const start    = performance.now();
+    const total    = noisy.length;
     const duration = 5800;
     const step = () => {
       const t = Math.min(1, (performance.now() - start) / duration);
       setNoisyIdx(Math.floor(t * total));
       if (t < 1) rafRef.current = requestAnimationFrame(step);
-      else {
-        setNoisyIdx(total);
-        setPhase("anomaly");
-      }
+      else { setNoisyIdx(total); setPhaseRaw("anomaly"); saveS2("anomaly", selected, species); }
     };
     rafRef.current = requestAnimationFrame(step);
     return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
   }, [phase, noisy.length]);
 
-  const handlePlay = () => { setPhase("playing"); setNoisyIdx(0); };
-  const handleSelect = (id: string) => { setSelected(id); setPhase("intervention"); };
-  const handleReset = () => { setSelected(""); setPhase("anomaly"); };
-  const handleCompare = () => { setSelected(null); setPhase("compare"); };
-
-  const predictionList = useMemo(
-    () => INTERVENTIONS.map((iv) => ({
-      id: iv.id,
-      label: iv.label,
-      color: iv.color,
-      points: predictions[iv.id] ?? [],
-      recommended: iv.recommended,
-    })),
-    [predictions]
-  );
+  const handlePlay    = () => { setPhaseRaw("playing"); saveS2("ready", selected, species); setNoisyIdx(0); };
+  const handleSelect  = (id: string) => { setSelectedRaw(id); setPhaseRaw("intervention"); saveS2("intervention", id, species); };
+  const handleReset   = () => { setSelectedRaw(""); setPhaseRaw("anomaly"); saveS2("anomaly", "", species); };
+  const handleCompare = () => { setSelectedRaw(null); setPhaseRaw("compare"); saveS2("compare", null, species); };
 
   const showingPredictions = phase === "intervention" || phase === "compare";
-  const selectedIv = INTERVENTIONS.find((i) => i.id === selected);
-  const goldenEnd = golden[golden.length - 1]?.p;
-  const selectedEnd = selected && predictions[selected] ? predictions[selected][predictions[selected].length - 1]?.p : undefined;
+  const selectedIv  = INTERVENTIONS.find((i) => i.id === selected);
+  const goldenEnd   = golden[golden.length - 1]?.p;
+  const selectedEnd = selected && scenRows[selected] ? scenPoints(scenRows[selected], species).at(-1)?.p : undefined;
   const endpointDelta = goldenEnd != null && selectedEnd != null ? Math.abs(goldenEnd - selectedEnd) : null;
+  const sp = SPECIES.find((s) => s.key === species)!;
+
+  // Anomaly onset = first timestamp in any loaded scenario file. All five
+  // scenarios share the same start so we read whichever one came back first.
+  const anomalyT = useMemo(() => {
+    for (const iv of INTERVENTIONS) {
+      const rows = scenRows[iv.id];
+      if (rows && rows.length) {
+        const t = Number(rows[0]["Time (h)"]);
+        if (Number.isFinite(t)) return t;
+      }
+    }
+    return null;
+  }, [scenRows]);
 
   return (
     <div className="px-10 py-10 max-w-[1360px] mx-auto">
@@ -113,7 +221,9 @@ export function Scenario2Surface() {
         <SectionTitle
           eyebrow="Scenario 02"
           title="Anomaly rescue"
-          sub="A live batch drifts from the golden trajectory at t = 15 h. Compare rescue actions on feed flowrate and pick one."
+          sub={anomalyT != null
+            ? `A live batch drifts from the golden trajectory at t = ${anomalyT} h. Compare rescue actions on feed flowrate and pick one.`
+            : "A live batch drifts from the golden trajectory. Compare rescue actions on feed flowrate and pick one."}
         />
         <Pill tone={modelFitted ? "accent" : "muted"}>
           <span className={cn("w-1.5 h-1.5 rounded-full", modelFitted ? "bg-accent" : "bg-muted-soft")} />
@@ -122,7 +232,6 @@ export function Scenario2Surface() {
       </div>
 
       <motion.div
-        key="run"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.32, ease: [0.23, 1, 0.32, 1] }}
@@ -130,22 +239,44 @@ export function Scenario2Surface() {
       >
         <div className="col-span-12 lg:col-span-8">
           <div className="rounded-2xl bg-canvas-raised border border-hairline overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-hairline">
+            {/* Chart header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-hairline gap-4">
               <div>
                 <div className="text-[11px] uppercase tracking-[0.12em] text-muted">Bioreactor · vessel 3</div>
-                <div className="serif text-[17px] text-ink leading-tight mt-0.5">Lactic acid (P) vs time</div>
+                <div className="serif text-[17px] text-ink leading-tight mt-0.5">
+                  {sp.label} vs time
+                </div>
               </div>
-              <div className="flex items-center gap-3 text-[11.5px] text-muted tabular">
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="inline-block w-4 h-[2.5px] rounded-full" style={{ background: "#4E8B73" }} />
-                  Golden
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="inline-block w-3 h-2 rounded-sm" style={{ background: "#4E8B73", opacity: 0.18 }} />
-                  95% band
-                </span>
+              <div className="flex items-center gap-3">
+                {/* Species switcher */}
+                <div className="flex items-center gap-1 bg-canvas rounded-full border border-hairline p-0.5">
+                  {SPECIES.map((s) => (
+                    <button
+                      key={s.key}
+                      onClick={() => setSpecies(s.key)}
+                      className={cn(
+                        "press tabular h-7 px-2.5 rounded-full text-[11.5px] transition-colors",
+                        species === s.key ? "bg-ink text-canvas" : "text-muted hover:text-ink"
+                      )}
+                    >
+                      {s.key}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex items-center gap-3 text-[11.5px] text-muted tabular">
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="inline-block w-4 h-[2.5px] rounded-full bg-[#4E8B73]" />
+                    Golden
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="inline-block w-3 h-2 rounded-sm bg-[#4E8B73] opacity-20" />
+                    95% band
+                  </span>
+                </div>
               </div>
             </div>
+
+            {/* Plot */}
             <div className="px-4 py-3 bg-canvas">
               <BatchPlot
                 golden={golden}
@@ -156,19 +287,24 @@ export function Scenario2Surface() {
                 showNowLine={phase === "playing"}
                 nowLineAt={noisy[noisyIdx - 1]?.t ?? 0}
                 anomaly={phase === "anomaly" || phase === "intervention" || phase === "compare"}
+                anomalyT={anomalyT}
+                unit={sp.unit}
               />
             </div>
 
+            {/* Footer bar */}
             <div className="flex items-center justify-between gap-3 px-5 py-3.5 border-t border-hairline bg-canvas-raised">
               <div className="text-[12px] text-muted tabular">
-                {phase === "ready" && "Golden trajectory projected. Press Play to stream the live batch."}
+                {phase === "ready"  && "Golden trajectory projected. Press Play to stream the live batch."}
                 {phase === "playing" && `Streaming · t = ${(noisy[noisyIdx - 1]?.t ?? 0).toFixed(1)} h`}
-                {phase === "anomaly" && "Anomaly at t = 15 h · feed composition drift (higher maltose / lower glucose). Select an intervention."}
+                {phase === "anomaly" && (anomalyT != null
+                  ? `Anomaly at t = ${anomalyT} h · feed composition drift. Select an intervention.`
+                  : "Anomaly detected · feed composition drift. Select an intervention.")}
                 {phase === "intervention" && selectedIv && (
                   <>Projecting {selectedIv.label} · endpoint{" "}
                     {endpointDelta != null && (
                       <span className={cn("tabular", selectedIv.recommended ? "text-accent" : "text-ink-soft")}>
-                        {endpointDelta.toFixed(2)} g/L from golden
+                        {endpointDelta.toFixed(2)} {sp.unit} from golden
                       </span>
                     )}
                   </>
@@ -197,6 +333,7 @@ export function Scenario2Surface() {
           </div>
         </div>
 
+        {/* Right panel */}
         <div className="col-span-12 lg:col-span-4 flex flex-col gap-4">
           <div className="rounded-2xl bg-canvas-raised border border-hairline p-5">
             <div className="text-[11px] uppercase tracking-[0.12em] text-muted mb-2">Diagnosis</div>
@@ -234,16 +371,12 @@ export function Scenario2Surface() {
                         transition={{ duration: 0.28, delay: 0.04 + i * 0.04, ease: [0.23, 1, 0.32, 1] }}
                         className={cn(
                           "press text-left rounded-xl border p-3 transition-all duration-200 relative overflow-hidden",
-                          isSelected && iv.recommended && "bg-accent-wash border-accent ring-2 ring-accent/30",
+                          isSelected && iv.recommended  && "bg-accent-wash border-accent ring-2 ring-accent/30",
                           isSelected && !iv.recommended && "border-2",
                           !isSelected && iv.recommended && "bg-accent-wash/60 border-accent",
                           !isSelected && !iv.recommended && "bg-canvas border-hairline hover:border-hairline-strong"
                         )}
-                        style={
-                          isSelected && !iv.recommended
-                            ? { borderColor: iv.color, background: `${iv.color}12` }
-                            : undefined
-                        }
+                        style={isSelected && !iv.recommended ? { borderColor: iv.color, background: `${iv.color}12` } : undefined}
                       >
                         {iv.recommended && (
                           <span className="absolute -top-px -right-px inline-flex items-center gap-1 h-5 px-2 rounded-bl-lg rounded-tr-xl bg-accent text-canvas text-[9.5px] font-semibold tracking-[0.06em] uppercase">

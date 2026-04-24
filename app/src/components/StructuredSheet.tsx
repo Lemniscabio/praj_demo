@@ -18,11 +18,10 @@ export function StructuredSheet({ open, onClose }: { open: boolean; onClose: () 
   const rows: SheetRows = wb?.sheets[active] ?? [];
   const cols = rows[0] ? Object.keys(rows[0]) : [];
 
+  // Show dataset values at up to 5 decimal places. Integers / shorter values
+  // render without trailing zeros (30 → "30", 6.48177 stays "6.48177").
   const fmt = (v: number | string) => {
-    if (typeof v === "number") {
-      if (Number.isInteger(v)) return String(v);
-      return Math.abs(v) >= 100 ? v.toFixed(2) : v.toFixed(3);
-    }
+    if (typeof v === "number") return String(Number(v.toFixed(5)));
     return v === "" ? "—" : v;
   };
 

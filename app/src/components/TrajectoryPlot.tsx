@@ -46,8 +46,16 @@ export function TrajectoryPlot({
   batch: number;
 }) {
   const unit = species === "V" ? "L" : "g/L";
-  const expKey = `${species}_experiment (${unit})`;
-  const predKey = `${species}_pred_mean (${unit})`;
+  const PREFIX: Record<SpeciesKey, string> = {
+    X: "Biomass_X",
+    S: "Glucose_S",
+    P: "Lactic_Acid_P",
+    M: "Maltose_M",
+    V: "Volume_V",
+  };
+  const prefix = PREFIX[species];
+  const expKey = `${prefix}_experiment`;
+  const predKey = species === "V" ? `${prefix}_analytical` : `${prefix}_pred_mean`;
 
   const data = useMemo(
     () =>
