@@ -314,7 +314,7 @@ function TopBar() {
           whileTap="tap"
           variants={{ tap: { scale: 0.97 } }}
           transition={{ duration: 0.1, ease: [0.23, 1, 0.32, 1] }}
-          className="flex items-center justify-center overflow-hidden bg-ink rounded-full px-6 py-2.5 [transition:background-color_180ms_cubic-bezier(0.23,1,0.32,1)] hover:bg-ink/85"
+          className="flex items-center justify-center overflow-hidden bg-ink rounded-full px-6 py-2.5 cursor-pointer [transition:background-color_180ms_cubic-bezier(0.23,1,0.32,1)] hover:bg-ink/85"
         >
           <motion.span
             className="flex items-center"
