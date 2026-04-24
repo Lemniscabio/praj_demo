@@ -14,135 +14,175 @@
     <title>Sign in · Bioprocess Studio</title>
     <style>
       :root {
-        --bg: #0b0d0f;
-        --panel: #14171a;
-        --border: #22272c;
-        --text: #e8ebee;
-        --muted: #8a9199;
-        --accent: #c6ff4d;
-        --error: #ff6b6b;
+        --canvas: #F6F5F2;
+        --canvas-raised: #FBFAF7;
+        --ink: #1C1E22;
+        --ink-soft: #3A3D42;
+        --muted: #6B7280;
+        --hairline: #E7E5E0;
+        --hairline-strong: #D8D5CE;
+        --accent-wash: #EEF3F0;
+        --signal: #C8863A;
+        --error: #B14545;
       }
       * { box-sizing: border-box; }
       html, body { margin: 0; padding: 0; height: 100%; }
       body {
-        font-family: 'Inter', system-ui, -apple-system, sans-serif;
-        background: var(--bg);
-        color: var(--text);
+        font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+        background: var(--canvas);
+        color: var(--ink);
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
+        font-feature-settings: 'ss01', 'cv11';
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 24px;
+        padding: 32px 24px;
       }
-      .card {
-        width: 100%;
-        max-width: 380px;
-        background: var(--panel);
-        border: 1px solid var(--border);
-        border-radius: 14px;
-        padding: 32px 28px;
-        box-shadow: 0 24px 64px -24px rgba(0, 0, 0, 0.6);
+      .serif {
+        font-family: 'Fraunces', 'Iowan Old Style', Georgia, serif;
+        font-feature-settings: 'ss01';
+        letter-spacing: -0.01em;
       }
+
+      .shell { width: 100%; max-width: 380px; }
+
       .brand {
         display: flex;
         align-items: center;
-        gap: 10px;
-        margin-bottom: 24px;
+        justify-content: center;
+        margin-bottom: 28px;
       }
-      .brand img { width: 22px; height: 22px; }
-      .brand span {
-        font-family: 'Fraunces', serif;
-        font-size: 18px;
-        font-weight: 500;
-        letter-spacing: -0.01em;
+      .brand img { height: 26px; width: auto; display: block; }
+
+      .card {
+        background: var(--canvas-raised);
+        border: 1px solid var(--hairline);
+        border-radius: 16px;
+        padding: 32px 30px 28px;
+        box-shadow: 0 1px 0 rgba(28, 30, 34, 0.02), 0 12px 40px -24px rgba(28, 30, 34, 0.08);
       }
+
       h1 {
-        font-family: 'Fraunces', serif;
-        font-weight: 500;
-        font-size: 22px;
+        font-family: 'Fraunces', 'Iowan Old Style', Georgia, serif;
+        font-feature-settings: 'ss01';
         letter-spacing: -0.01em;
-        margin: 0 0 6px;
+        font-weight: 500;
+        font-size: 26px;
+        line-height: 1.15;
+        color: var(--ink);
+        margin: 0 0 8px;
       }
       p.sub {
-        color: var(--muted);
-        font-size: 13px;
+        color: var(--ink-soft);
+        font-size: 14px;
+        line-height: 1.55;
         margin: 0 0 24px;
-        line-height: 1.5;
       }
+
       label {
         display: block;
-        font-size: 12px;
+        font-size: 11px;
         color: var(--muted);
         margin-bottom: 8px;
-        letter-spacing: 0.02em;
+        letter-spacing: 0.06em;
         text-transform: uppercase;
+        font-weight: 500;
       }
+
       input[type='password'] {
         width: 100%;
-        background: #0b0d0f;
-        border: 1px solid var(--border);
-        color: var(--text);
-        border-radius: 8px;
-        padding: 11px 13px;
-        font-size: 14px;
+        background: var(--canvas);
+        border: 1px solid var(--hairline-strong);
+        color: var(--ink);
+        border-radius: 10px;
+        padding: 12px 14px;
+        font-size: 14.5px;
         font-family: inherit;
         outline: none;
-        transition: border-color 120ms ease;
+        transition: border-color 160ms cubic-bezier(0.23, 1, 0.32, 1),
+                    box-shadow 160ms cubic-bezier(0.23, 1, 0.32, 1),
+                    background 160ms cubic-bezier(0.23, 1, 0.32, 1);
       }
-      input[type='password']:focus { border-color: #3a424a; }
+      input[type='password']:hover { border-color: #C7C3B8; }
+      input[type='password']:focus {
+        border-color: var(--ink);
+        background: var(--canvas-raised);
+        box-shadow: 0 0 0 3px rgba(28, 30, 34, 0.06);
+      }
+
       button {
         width: 100%;
-        margin-top: 16px;
-        background: var(--accent);
-        color: #0b0d0f;
-        border: none;
-        border-radius: 8px;
-        padding: 11px 13px;
+        margin-top: 18px;
+        background: var(--ink);
+        color: var(--canvas-raised);
+        border: 1px solid var(--ink);
+        border-radius: 999px;
+        padding: 11px 18px;
         font-size: 14px;
-        font-weight: 600;
+        font-weight: 500;
         font-family: inherit;
+        letter-spacing: -0.005em;
         cursor: pointer;
-        transition: filter 120ms ease, transform 120ms ease;
+        transition: background-color 180ms cubic-bezier(0.23, 1, 0.32, 1);
       }
-      button:hover:not(:disabled) { filter: brightness(1.05); }
-      button:active:not(:disabled) { transform: translateY(1px); }
+      button:hover:not(:disabled) { background: #2A2D32; }
+      button:active:not(:disabled) { background: #15171A; }
       button:disabled { opacity: 0.55; cursor: not-allowed; }
+
       .error {
         color: var(--error);
         font-size: 12.5px;
-        margin-top: 12px;
+        margin-top: 14px;
         min-height: 16px;
+        line-height: 1.4;
       }
-      footer {
-        margin-top: 20px;
-        font-size: 11px;
+
+      .footer {
+        margin-top: 22px;
+        padding-top: 18px;
+        border-top: 1px solid var(--hairline);
+        font-size: 11.5px;
         color: var(--muted);
         text-align: center;
-        letter-spacing: 0.02em;
+        letter-spacing: 0.01em;
+      }
+      .dot {
+        display: inline-block;
+        width: 4px; height: 4px;
+        border-radius: 999px;
+        background: var(--hairline-strong);
+        vertical-align: middle;
+        margin: 0 8px 2px;
       }
     </style>
   </head>
   <body>
-    <main class="card">
+    <div class="shell">
       <div class="brand">
-        <img src="/lemnisca-logo.svg" alt="" />
-        <span>Lemnisca LABS</span>
+        <img src="/lemnisca-logo.svg" alt="Lemnisca" />
       </div>
-      <h1>Sign in</h1>
-      <p class="sub">This demo is password-protected. Enter the access password to continue.</p>
-      <form id="f" autocomplete="off">
-        <label for="pw">Password</label>
-        <input id="pw" type="password" autocomplete="current-password" autofocus required />
-        <button id="b" type="submit">Continue</button>
-        <div class="error" id="err" role="alert" aria-live="polite"></div>
-      </form>
-      <footer>Bioprocess Studio · access-gated preview</footer>
-    </main>
+      <main class="card">
+        <h1>Sign in</h1>
+        <p class="sub">This preview is access-gated. Enter the password to continue.</p>
+        <form id="f" autocomplete="off" novalidate>
+          <label for="pw">Password</label>
+          <input id="pw" type="password" autocomplete="current-password" autofocus required />
+          <button id="b" type="submit">Continue</button>
+          <div class="error" id="err" role="alert" aria-live="polite"></div>
+        </form>
+        <div class="footer">
+          Bioprocess Studio<span class="dot"></span>access-gated preview
+        </div>
+      </main>
+    </div>
     <script>
       (function () {
         var form = document.getElementById('f');
         var pw = document.getElementById('pw');
         var btn = document.getElementById('b');
         var err = document.getElementById('err');
+        var defaultLabel = btn.textContent;
 
         form.addEventListener('submit', async function (e) {
           e.preventDefault();
@@ -170,7 +210,7 @@
             err.textContent = 'Network error. Try again.';
           } finally {
             btn.disabled = false;
-            btn.textContent = 'Continue';
+            btn.textContent = defaultLabel;
             pw.select();
           }
         });
