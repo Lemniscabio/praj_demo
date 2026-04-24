@@ -67,6 +67,7 @@ export function FitSurface() {
   const [activeStage, setActiveStageRaw] = useState<StageId>(saved?.active ?? "ingest");
   const doneRef = useRef(new Set<StageId>(saved?.done ?? []));
   const [, forceUpdate] = useState(0);
+  const [rerunKey, setRerunKey] = useState(0);
   const [uploadedName, setUploadedName] = useState<string>(saved?.uploadedName ?? "raw_data.pdf");
   const [uploadedSize, setUploadedSize] = useState<string>(saved?.uploadedSize ?? "");
 
@@ -82,11 +83,16 @@ export function FitSurface() {
   };
 
   const rerunFrom = (id: StageId) => {
+    localStorage.removeItem("fitState");
     const idx = ORDER.indexOf(id);
     ORDER.slice(idx).forEach((s) => doneRef.current.delete(s));
     if (id === "fit" || id === "results") setModelFitted(false);
     setActiveStageRaw(id);
-    persistState(id, uploadedName, uploadedSize);
+    if (id === "ingest") {
+      setUploadedName("raw_data.pdf");
+      setUploadedSize("");
+      setRerunKey((n) => n + 1);
+    }
     forceUpdate((n) => n + 1);
   };
 
@@ -137,6 +143,7 @@ export function FitSurface() {
 
       <div className="mt-10 flex flex-col gap-4">
         <IngestStage
+          key={rerunKey}
           status={status("ingest")}
           onDone={() => advance("ingest", "structured")}
           onRerun={() => rerunFrom("ingest")}

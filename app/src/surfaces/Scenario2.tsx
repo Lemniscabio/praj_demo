@@ -207,16 +207,16 @@ export function Scenario2Surface() {
     <div className="px-10 py-10 max-w-[1360px] mx-auto">
       <div className="flex items-start justify-between gap-6">
         <SectionTitle
-          eyebrow="Scenario 02"
+
           title="Real-time monitoring"
           sub={anomalyT != null
             ? `A live batch drifts from the golden trajectory at t = ${anomalyT} h. Compare rescue actions on feed flowrate and pick one.`
             : "A live batch drifts from the golden trajectory. Compare rescue actions on feed flowrate and pick one."}
         />
-        <Pill tone={modelFitted ? "accent" : "muted"}>
+        {/* <Pill tone={modelFitted ? "accent" : "muted"}>
           <span className={cn("w-1.5 h-1.5 rounded-full", modelFitted ? "bg-accent" : "bg-muted-soft")} />
           {modelFitted ? "Hybrid model loaded" : "Reference model"}
-        </Pill>
+        </Pill> */}
       </div>
 
       <motion.div

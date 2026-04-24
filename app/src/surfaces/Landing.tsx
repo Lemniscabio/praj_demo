@@ -25,12 +25,11 @@ export function LandingSurface() {
           <h1 className="serif text-[clamp(42px,6.2vw,78px)] leading-[1.02] text-ink tracking-[-0.01em]">
             Lactic Acid Bioprocess
             <br />
-            Simulation
+            Simulator
           </h1>
 
           <p className="text-[18px] text-ink-soft leading-[1.6] max-w-[64ch]">
-            The lactic acid bioprocess simulation (LABS) showcases how a hybrid
-            model is built and two use cases of the digital twin.
+            The lactic acid bioprocess simulator (LABS) demonstrates how we build a hybrid model from process data and use it for what-if simulations and real-time monitoring
           </p>
         </motion.header>
 
@@ -52,7 +51,7 @@ export function LandingSurface() {
             </SubfigureFrame>
             <SubfigureFrame
               title="What-if simulator"
-              blurb="Use the trained model to test reactor scale, dilution rate, and feed composition. LABS predicts key KPIs so users can compare options before fixing the operating envelope."
+              blurb="LABS predicts process KPIs across 4 different scales when a user changes dilution rate and feed composition."
               hint="What-if simulator"
               onOpen={() => setSurface("scenario1")}
             >
@@ -307,7 +306,6 @@ function TopBar() {
       <div className="relative mx-auto max-w-[1440px] px-10 h-24 flex items-center justify-between pointer-events-auto">
         <div className="flex items-end gap-2.5">
           <img src="/lemnisca-logo.svg" alt="Lemnisca" className="h-[30px] w-auto" />
-          <span className="text-[18px] text-muted tabular tracking-[0.04em] leading-none translate-y-[-2.5px]">LABS</span>
         </div>
         <motion.button
           onClick={() => setSurface("fit")}

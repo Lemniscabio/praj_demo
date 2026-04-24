@@ -44,10 +44,9 @@ export function Rail() {
 
   return (
     <aside className="shrink-0 w-[240px] border-r border-hairline bg-canvas flex flex-col">
-      <div className="px-5 pt-6 pb-5 flex items-end gap-2">
+      <button onClick={() => setSurface("landing")} className="px-5 pt-6 pb-5 flex items-end gap-2 hover:opacity-70 transition-opacity duration-150 cursor-pointer">
         <img src="/lemnisca-logo.svg" alt="Lemnisca" className="h-[30px] w-auto" />
-        <span className="text-[18px] text-muted tabular tracking-[0.04em] leading-none translate-y-[-2.5px]">LABS</span>
-      </div>
+      </button>
 
       <nav className="px-3 flex flex-col gap-0.5">
         {items.map((it) => {

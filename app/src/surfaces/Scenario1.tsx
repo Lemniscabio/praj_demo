@@ -54,13 +54,13 @@ export function Scenario1Surface() {
     <div className="px-10 py-10 max-w-[1360px] mx-auto">
       <div className="flex items-start justify-between gap-6">
         <SectionTitle
-          eyebrow="Scenario 01"
-          title="What-if simulator"
+          title="What-if simulations"
+          sub="The trained hybrid model predicts impact on biomass and lactic acid production at 4 different scales when we vary the dilution rate and feed composition."
         />
-        <Pill tone={modelFitted ? "accent" : "muted"}>
+        {/* <Pill tone={modelFitted ? "accent" : "muted"}>
           <span className={cn("w-1.5 h-1.5 rounded-full", modelFitted ? "bg-accent" : "bg-muted-soft")} />
           {modelFitted ? "Hybrid model loaded" : "Reference model"}
-        </Pill>
+        </Pill> */}
       </div>
 
       <AnimatePresence mode="wait">
@@ -102,16 +102,8 @@ export function Scenario1Surface() {
                   return (
                     <div
                       key={c.scaleKey}
-                      className={cn(
-                        "bg-canvas-raised px-3 pt-3 pb-4 flex flex-col relative",
-                        isExtrapolation && "opacity-40 grayscale"
-                      )}
+                      className="bg-canvas-raised px-3 pt-3 pb-4 flex flex-col relative"
                     >
-                      {isExtrapolation && (
-                        <span className="absolute bottom-2 left-3 text-[9px] uppercase tracking-[0.12em] text-muted-soft bg-canvas/80 border border-hairline rounded-full px-1.5 py-0.5">
-                          extrapolation
-                        </span>
-                      )}
                       <div className="flex items-baseline justify-between px-1 mb-1">
                         <div className="flex items-baseline gap-1.5">
                           <span className="serif text-[15px] text-ink">{formatScale(c.scaleL)}</span>
@@ -124,7 +116,10 @@ export function Scenario1Surface() {
                         </span>
                       </div>
 
-                      <div className="flex-1 flex items-end justify-center bg-canvas rounded-lg py-3 px-1">
+                      <div className={cn(
+                        "flex-1 flex items-end justify-center bg-canvas rounded-lg py-3 px-1",
+                        isExtrapolation && "opacity-40 grayscale"
+                      )}>
                         <div style={{ width: `${sizeFrac * 100}%`, maxWidth: 240 }}>
                           <Reactor
                             scaleL={c.scaleL}
@@ -137,8 +132,14 @@ export function Scenario1Surface() {
                         </div>
                       </div>
 
+                      {isExtrapolation && (
+                        <span className="mt-2 self-start text-[9px] uppercase tracking-[0.12em] text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5 font-medium">
+                          extrapolation
+                        </span>
+                      )}
+
                       {/* Per-reactor KPIs: inputs and predicted outputs at t=75h */}
-                      <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5 px-1">
+                      <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5 px-1">
                         <KPI label="Feed rate" value={formatFlowrate(c.F)} />
                         <KPI
                           label="Lactic acid · 75 h"

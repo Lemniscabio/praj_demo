@@ -75,24 +75,26 @@ function SpeciesPanel({
     () =>
       grid.scaleKeys.map((scaleKey, i) => {
         const cell = grid.cells[scaleKey]?.[dKey]?.[gfKey];
+        const mean = cell ? cell[species].mean : [];
+        const std  = cell ? cell[species].std  : [];
         return {
           scaleKey,
           scaleL: Number(scaleKey),
           color: scaleColor(i, grid.scaleKeys.length),
-          mean: cell ? cell[species].mean : [],
-          std: cell ? cell[species].std : [],
+          mean,
+          std,
+          upper: mean.map((m, j) => m + 2 * std[j]),
+          lower: mean.map((m, j) => Math.max(0, m - 2 * std[j])),
           isProd: i === grid.scaleKeys.length - 1,
+          bandOpacity: [0.18, 0.20, 0.22, 0.26][i] ?? 0.20,
         };
       }),
     [grid, dKey, gfKey, species],
   );
 
-  const prodTrace = traces.find((t) => t.isProd);
-  const prodUpper = prodTrace ? prodTrace.mean.map((m, i) => m + 2 * prodTrace.std[i]) : [];
-  const prodLower = prodTrace ? prodTrace.mean.map((m, i) => Math.max(0, m - 2 * prodTrace.std[i])) : [];
-
-  const allMeans = traces.flatMap((t) => t.mean);
-  const yMax = niceMax(Math.max(0.5, ...allMeans, ...prodUpper) * 1.06);
+  const allUppers = traces.flatMap((t) => t.upper);
+  const allMeans  = traces.flatMap((t) => t.mean);
+  const yMax = niceMax(Math.max(0.5, ...allMeans, ...allUppers) * 1.06);
   const xMax = time[time.length - 1] || 75;
 
   const xs = (t: number) => PAD.l + (t / xMax) * (W - PAD.l - PAD.r);
@@ -102,17 +104,14 @@ function SpeciesPanel({
   const yTicks = [0, yMax / 4, yMax / 2, (3 * yMax) / 4, yMax];
   const xTicks = [0, xMax / 4, xMax / 2, (3 * xMax) / 4, xMax];
 
-  const prodEnvPath =
-    prodTrace && prodTrace.mean.length
+  const envPath = (upper: number[], lower: number[]) =>
+    upper.length
       ? [
-          ...prodUpper.map((v, i) => `${i === 0 ? "M" : "L"} ${xs(time[i]).toFixed(1)} ${ys(v).toFixed(1)}`),
-          ...prodLower
-            .slice()
-            .reverse()
-            .map((v, i) => {
-              const idx = prodLower.length - 1 - i;
-              return `L ${xs(time[idx]).toFixed(1)} ${ys(v).toFixed(1)}`;
-            }),
+          ...upper.map((v, i) => `${i === 0 ? "M" : "L"} ${xs(time[i]).toFixed(1)} ${ys(v).toFixed(1)}`),
+          ...[...lower].reverse().map((v, i) => {
+            const idx = lower.length - 1 - i;
+            return `L ${xs(time[idx]).toFixed(1)} ${ys(v).toFixed(1)}`;
+          }),
           "Z",
         ].join(" ")
       : "";
@@ -138,11 +137,11 @@ function SpeciesPanel({
       scaleL: tr.scaleL,
       color: tr.color,
       isProd: tr.isProd,
-      mean: tr.mean.length ? interp(tr.mean, time, hoverT) : null,
-      upper: tr.isProd && tr.mean.length ? interp(prodUpper, time, hoverT) : null,
-      lower: tr.isProd && tr.mean.length ? interp(prodLower, time, hoverT) : null,
+      mean:  tr.mean.length  ? interp(tr.mean,  time, hoverT) : null,
+      upper: tr.upper.length ? interp(tr.upper, time, hoverT) : null,
+      lower: tr.lower.length ? interp(tr.lower, time, hoverT) : null,
     }));
-  }, [hoverT, traces, time, prodUpper, prodLower]);
+  }, [hoverT, traces, time]);
 
   return (
     <div className="rounded-xl bg-canvas border border-hairline/70 p-3 relative">
@@ -194,18 +193,22 @@ function SpeciesPanel({
           </text>
         ))}
 
-        {/* Production ±2σ envelope */}
-        {prodEnvPath && (
-          <motion.path
-            d={prodEnvPath}
-            fill={prodTrace!.color}
-            fillOpacity={0.08}
-            stroke="none"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
-          />
-        )}
+        {/* Per-scale ±2σ envelopes */}
+        {traces.map((tr) => {
+          const p = envPath(tr.upper, tr.lower);
+          return p ? (
+            <motion.path
+              key={`env-${tr.scaleKey}`}
+              d={p}
+              fill={tr.color}
+              fillOpacity={tr.bandOpacity}
+              stroke="none"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
+            />
+          ) : null;
+        })}
 
         {/* Per-scale mean lines */}
         {traces.map((tr) =>
@@ -282,14 +285,13 @@ function SpeciesPanel({
                 </div>
               ),
             )}
-            {(() => {
-              const prod = hoverValues.find((v) => v.isProd);
-              return prod && prod.upper != null && prod.lower != null ? (
-                <div className="pt-1 mt-1 border-t border-hairline/60 text-[10.5px] text-muted-soft">
-                  ±2σ (prod) [{prod.lower.toFixed(1)}, {prod.upper.toFixed(1)}]
+            {hoverValues.map((v) =>
+              v.upper != null && v.lower != null ? (
+                <div key={`band-${v.scaleKey}`} className="text-[10px] text-muted-soft">
+                  ±2σ [{v.lower.toFixed(1)}, {v.upper.toFixed(1)}]
                 </div>
-              ) : null;
-            })()}
+              ) : null,
+            )}
           </div>
         </div>
       )}
@@ -299,14 +301,9 @@ function SpeciesPanel({
 
 /* ─── helpers ─────────────────────────────────────────────────────────── */
 
-export function scaleColor(i: number, n: number): string {
-  const palette = ["#B9D0C3", "#87AF9B", "#5A8E78", "#356B55"];
-  if (n === palette.length) return palette[i];
-  const t = n <= 1 ? 1 : i / (n - 1);
-  const r = Math.round(0xB9 + (0x35 - 0xB9) * t);
-  const g = Math.round(0xD0 + (0x6B - 0xD0) * t);
-  const b = Math.round(0xC3 + (0x55 - 0xC3) * t);
-  return `rgb(${r}, ${g}, ${b})`;
+export function scaleColor(i: number, _n: number): string {
+  const palette = ["#4E9AF0", "#3DBE8A", "#F0924A", "#9B6EC8"];
+  return palette[i % palette.length];
 }
 
 function niceMax(raw: number): number {

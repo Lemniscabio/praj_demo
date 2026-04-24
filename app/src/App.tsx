@@ -13,7 +13,7 @@ function MobileGate() {
       <div>
         <div className="serif text-[22px] text-ink leading-snug">Open on a larger screen</div>
         <p className="mt-2 text-[13px] text-muted leading-relaxed max-w-[28ch] mx-auto">
-          LABS is designed for desktop and tablet — a screen at least 768 px wide.
+          This app is designed for desktop and tablet — a screen at least 768 px wide.
         </p>
       </div>
       <div className="flex items-center gap-3 text-muted-soft">
