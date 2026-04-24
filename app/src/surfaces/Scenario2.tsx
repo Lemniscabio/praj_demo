@@ -16,13 +16,6 @@ const SPECIES: { key: SpeciesKey; label: string; unit: string }[] = [
   { key: "M", label: "Maltose M", unit: "g/L" },
 ];
 
-const SPECIES_COLOR: Record<SpeciesKey, string> = {
-  X: "#1F77B4",
-  S: "#1C1E22",
-  P: "#2CA02C",
-  M: "#D62728",
-};
-
 // Intervention file set — id is read back from the filename, label from the
 // multiplier. 0.6× is flagged as the recommended rescue.
 type Intervention = {
@@ -137,8 +130,6 @@ export function Scenario2Surface() {
   const [species,     setSpeciesRaw]  = useState<SpeciesKey>(saved?.species ?? "P");
 
   // Wrapped setters that also persist
-  const setPhase   = (p: Phase)           => { setPhaseRaw(p);   saveS2(p, selected, species); };
-  const setSelected= (s: string | null)   => { setSelectedRaw(s); saveS2(phase, s, species); };
   const setSpecies = (sp: SpeciesKey)     => { setSpeciesRaw(sp); saveS2(phase, selected, sp); };
 
   // Raw CSV data (loaded once)
