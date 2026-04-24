@@ -196,7 +196,7 @@ export function Scenario1Surface() {
                 <span className="text-[10px] uppercase tracking-[0.12em] text-muted">Initial conditions</span>
                 <IcItem label="X₀" value={`${grid.meta.fixed_ICs.X0.toFixed(1)} g/L`} />
                 <IcItem label="P₀" value={`${grid.meta.fixed_ICs.P0.toFixed(1)} g/L`} />
-                <IcItem label="O₂" value={`${grid.meta.fixed_ICs.O2_0.toFixed(3)} mg/L`} />
+                <IcItem label="O₂" value={`${(grid.meta.fixed_ICs.O2_0 * 1000).toFixed(3)} mg/L`} />
                 <IcItem label="Σsub" value={`${grid.meta.fixed_ICs.total_sub.toFixed(0)} g/L`} />
                 <IcItem label="feed C" value={`${grid.meta.fixed_ICs.C_feed_total.toFixed(0)} g/L`} />
               </div>

@@ -17,7 +17,7 @@ const items: { id: Surface; label: string; hint: string; icon: React.ReactNode }
   },
   {
     id: "scenario1",
-    label: "What-if simulator",
+    label: "What-if simulations",
     hint: "Feed · G/M ratio · ±2σ bands",
     icon: (
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">

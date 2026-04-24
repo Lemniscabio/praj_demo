@@ -859,6 +859,11 @@ function ResultsStage({ status, onToScenario, onRerun }: { status: "pending" | "
                 const isActive = typeof m.Species === "string" && m.Species.startsWith(
                   { X: "Biomass", S: "Glucose", P: "Lactic", M: "Maltose" }[species]
                 );
+                const isDO = typeof m.Species === "string" && String(m.Species).includes("O2");
+                const displayLabel = isDO
+                  ? String(m.Species).replace("(g/L)", "(mg/L)")
+                  : String(m.Species);
+                const mae = isDO ? Number(m.MAE) * 1000 : Number(m.MAE);
                 const r2 = Number(m.R2);
                 return (
                   <button
@@ -874,13 +879,13 @@ function ResultsStage({ status, onToScenario, onRerun }: { status: "pending" | "
                     )}
                   >
                     <div className="flex-1 min-w-0">
-                      <div className="text-[12.5px] text-ink truncate">{String(m.Species)}</div>
+                      <div className="text-[12.5px] text-ink truncate">{displayLabel}</div>
                       <div className="mt-1 h-[2px] rounded-full bg-hairline overflow-hidden">
                         <div className="h-full bg-accent" style={{ width: `${Math.max(0, Math.min(1, r2)) * 100}%` }} />
                       </div>
                     </div>
                     <div className="tabular text-[11.5px] text-muted shrink-0 w-[150px] text-right">
-                      MAE <span className="text-ink">{Number(m.MAE).toFixed(2)}</span> · R² <span className="text-ink">{r2.toFixed(3)}</span>
+                      MAE <span className="text-ink">{mae.toFixed(2)}</span> · R² <span className="text-ink">{r2.toFixed(3)}</span>
                     </div>
                   </button>
                 );

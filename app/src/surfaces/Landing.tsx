@@ -50,9 +50,9 @@ export function LandingSurface() {
               <FigureExtract />
             </SubfigureFrame>
             <SubfigureFrame
-              title="What-if simulator"
+              title="What-if simulations"
               blurb="LABS predicts process KPIs across 4 different scales when a user changes dilution rate and feed composition."
-              hint="What-if simulator"
+              hint="What-if simulations"
               onOpen={() => setSurface("scenario1")}
             >
               <FigureGrid />
@@ -252,7 +252,7 @@ export function LandingSurface() {
               <p>
                 After training, the model was validated on the held-out test set
                 using MAE, RMSE, and R². The validated model is used in the
-                what-if simulator and real-time monitoring workflows above.
+                what-if simulations and real-time monitoring workflows above.
               </p>
             </div>
           </div>
@@ -341,21 +341,16 @@ function TopBar() {
 function SubfigureFrame({
   title,
   blurb,
-  hint,
   children,
-  onOpen,
 }: {
   title: string;
   blurb: string;
-  hint: string;
+  hint?: string;
   children: React.ReactNode;
-  onOpen: () => void;
+  onOpen?: () => void;
 }) {
   return (
-    <button
-      onClick={onOpen}
-      className="group text-left rounded-2xl bg-canvas-raised/60 border border-hairline overflow-hidden hover:border-hairline-strong transition-all duration-200 hover:-translate-y-[1px] hover:shadow-[0_6px_22px_rgba(28,30,34,0.05)] flex flex-col"
-    >
+    <div className="rounded-2xl bg-canvas-raised/60 border border-hairline overflow-hidden flex flex-col transition-all duration-200 hover:border-hairline-strong hover:-translate-y-[1px] hover:shadow-[0_6px_22px_rgba(28,30,34,0.05)]">
       {/* Title + blurb */}
       <div className="px-4 pt-4 pb-3 border-b border-hairline/60">
         <div className="serif text-[16px] text-ink leading-tight">{title}</div>
@@ -368,12 +363,7 @@ function SubfigureFrame({
           {children}
         </div>
       </div>
-
-      {/* Footer hint */}
-      <div className="flex items-center px-4 py-3 border-t border-hairline/60 bg-canvas-raised/40">
-        <span className="text-[11.5px] text-muted">Opens: {hint}</span>
-      </div>
-    </button>
+    </div>
   );
 }
 
@@ -458,126 +448,90 @@ function FigureExtract() {
 
 /* ─── Fig 1b — 5×5 parameter grid ─────────────────────────────────────── */
 
+const SCALE_COLORS = ['#4E9AF0', '#3DBE8A', '#F0924A', '#9B6EC8'];
+const SCALE_LABELS = ['10 L', '1 000 L', '10 000 L', '150 m³'];
+
 function FigureGrid() {
   const [grid, setGrid] = useState<WhatIfGrid | null>(null);
-  const [highlightIdx, setHighlightIdx] = useState(12);
 
   useEffect(() => {
     loadWhatIfGrid().then(setGrid).catch(() => { /* noop */ });
   }, []);
 
-  // Glide the highlight to a random neighbour cell every ~9s — slow enough
-  // that the eye can settle on the currently highlighted sparkline before
-  // the focus moves.
-  useEffect(() => {
-    const id = setInterval(() => {
-      setHighlightIdx((prev) => {
-        const row = Math.floor(prev / 5);
-        const col = prev % 5;
-        const dr = [-1, 0, 0, 1][Math.floor(Math.random() * 4)];
-        const dc = [0, -1, 1, 0][Math.floor(Math.random() * 4)];
-        const nr = Math.max(0, Math.min(4, row + dr));
-        const nc = Math.max(0, Math.min(4, col + dc));
-        return nr * 5 + nc;
-      });
-    }, 4000);
-    return () => clearInterval(id);
-  }, []);
-
-  // Build 25 sparkline curves from the (scale=10000, dKeys[0..4], gfKeys[0..4]) slice.
-  const cells = useMemo(() => {
+  const traces = useMemo(() => {
     if (!grid) return [];
-    const scaleKey = grid.scaleKeys.find((k) => Number(k) === 10000) ?? grid.scaleKeys[0];
-    const dSubset = grid.dKeys.slice(0, 5);
-    const gfSubset = grid.gfKeys.slice(0, 5);
-    const out: { points: { t: number; v: number }[]; yMax: number; yMin: number }[] = [];
-    for (const d of dSubset) {
-      for (const g of gfSubset) {
-        const cell = grid.cells[scaleKey]?.[d]?.[g];
-        if (!cell) { out.push({ points: [], yMax: 1, yMin: 0 }); continue; }
-        const t = grid.time;
-        const mean = cell.P.mean;
-        const pts = t.map((ti, i) => ({ t: ti, v: mean[i] }));
-        const yMax = Math.max(...mean);
-        const yMin = Math.min(...mean);
-        out.push({ points: pts, yMax, yMin });
-      }
-    }
-    return out;
+    const dKey  = grid.dKeys[Math.floor(grid.dKeys.length / 2)];
+    const gfKey = grid.gfKeys[Math.floor(grid.gfKeys.length / 2)];
+    return grid.scaleKeys.map((sk, i) => {
+      const cell = grid.cells[sk]?.[dKey]?.[gfKey];
+      return {
+        label: SCALE_LABELS[i] ?? sk,
+        color: SCALE_COLORS[i],
+        mean:  cell ? cell.P.mean : [],
+        upper: cell ? cell.P.mean.map((m, j) => m + 2 * cell.P.std[j]) : [],
+        lower: cell ? cell.P.mean.map((m, j) => Math.max(0, m - 2 * cell.P.std[j])) : [],
+      };
+    });
   }, [grid]);
 
-  const CELL_W = 60, CELL_H = 46, GAP = 7;
-  const GRID_W = 5 * CELL_W + 4 * GAP;
-  const GRID_H = 5 * CELL_H + 4 * GAP;
-  const LEFT = 22; // axis labels
-  const TOP = 22;
-  const W = GRID_W + LEFT + 8;
-  const H = GRID_H + TOP + 16;
+  const W = 340, H = 220;
+  const PAD = { l: 36, r: 14, t: 24, b: 28 };
+  const time = grid?.time ?? [];
+  const xMax = time[time.length - 1] || 75;
+  const allVals = traces.flatMap((tr) => tr.upper);
+  const yMax = allVals.length ? Math.ceil(Math.max(...allVals) * 1.08) : 80;
+
+  const xs = (t: number) => PAD.l + (t / xMax) * (W - PAD.l - PAD.r);
+  const ys = (v: number) => H - PAD.b - (v / yMax) * (H - PAD.t - PAD.b);
+
+  const linePath = (arr: number[]) =>
+    arr.map((v, i) => `${i === 0 ? 'M' : 'L'} ${xs(time[i]).toFixed(1)} ${ys(v).toFixed(1)}`).join(' ');
+
+  const bandPath = (upper: number[], lower: number[]) =>
+    upper.length ? [
+      ...upper.map((v, i) => `${i === 0 ? 'M' : 'L'} ${xs(time[i]).toFixed(1)} ${ys(v).toFixed(1)}`),
+      ...[...lower].reverse().map((v, i) => `L ${xs(time[lower.length - 1 - i]).toFixed(1)} ${ys(v).toFixed(1)}`),
+      'Z',
+    ].join(' ') : '';
+
+  const yTicks = [0, yMax / 2, yMax];
+  const xTicks = [0, xMax / 2, xMax];
 
   return (
-    <svg
-      viewBox={`0 0 ${W} ${H}`}
-      className="w-[96%] h-auto"
-      preserveAspectRatio="xMidYMid meet"
-    >
-      {/* Axis labels */}
-      <text x={LEFT + GRID_W / 2} y={11} fontSize="9" fill="#6B7280"
-        fontFamily="JetBrains Mono, monospace" textAnchor="middle">
-        glucose fraction →
-      </text>
-      <text x={10} y={TOP + GRID_H / 2} fontSize="9" fill="#6B7280"
-        fontFamily="JetBrains Mono, monospace" textAnchor="middle"
-        transform={`rotate(-90 10 ${TOP + GRID_H / 2})`}>
-        ← dilution rate
-      </text>
-
-      <g transform={`translate(${LEFT}, ${TOP})`}>
-        {cells.map((cell, i) => {
-          const r = Math.floor(i / 5);
-          const c = i % 5;
-          const x = c * (CELL_W + GAP);
-          const y = r * (CELL_H + GAP);
-          const isHl = i === highlightIdx;
-          const range = cell.yMax - cell.yMin || 1;
-          const pad = 5;
-          const path = cell.points.length
-            ? cell.points.map((p, idx) => {
-                const px = pad + (idx / (cell.points.length - 1)) * (CELL_W - pad * 2);
-                const py = CELL_H - pad - ((p.v - cell.yMin) / range) * (CELL_H - pad * 2);
-                return `${idx === 0 ? "M" : "L"} ${px.toFixed(1)} ${py.toFixed(1)}`;
-              }).join(" ")
-            : "";
-          return (
-            <g key={i} transform={`translate(${x}, ${y})`}>
-              <motion.rect
-                width={CELL_W} height={CELL_H} rx={3.5}
-                initial={false}
-                animate={{
-                  fill: isHl ? "#EDF4EF" : "#FBFAF7",
-                  stroke: isHl ? "#4E8B73" : "#E7E5E0",
-                }}
-                transition={{ duration: 0.5, ease: "easeInOut" }}
-                strokeWidth={isHl ? 1.4 : 0.8}
-              />
-              {path && (
-                <motion.path
-                  d={path}
-                  fill="none"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  initial={false}
-                  animate={{
-                    stroke: isHl ? "#4E8B73" : "#9AA0A6",
-                    strokeWidth: isHl ? 1.6 : 0.9,
-                    opacity: isHl ? 1 : 0.55,
-                  }}
-                  transition={{ duration: 0.5, ease: "easeInOut" }}
-                />
-              )}
-            </g>
-          );
-        })}
-      </g>
+    <svg viewBox={`0 0 ${W} ${H}`} className='w-[96%] h-auto' preserveAspectRatio='xMidYMid meet'
+      style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+      {yTicks.map((y) => (
+        <line key={y} x1={PAD.l} x2={W - PAD.r} y1={ys(y)} y2={ys(y)}
+          stroke='#E7E5E0' strokeDasharray={y === 0 ? '0' : '2 4'} />
+      ))}
+      {yTicks.map((y) => (
+        <text key={`y${y}`} x={PAD.l - 5} y={ys(y) + 3} textAnchor='end' fontSize={8} fill='#9AA0A6'>
+          {y.toFixed(0)}
+        </text>
+      ))}
+      {xTicks.map((x) => (
+        <text key={`x${x}`} x={xs(x)} y={H - PAD.b + 12} textAnchor='middle' fontSize={8} fill='#9AA0A6'>
+          {x.toFixed(0)}h
+        </text>
+      ))}
+      <text x={PAD.l - 5} y={PAD.t - 8} textAnchor='end' fontSize={7.5} fill='#9AA0A6'>g/L</text>
+      {traces.map((tr) => {
+        const p = bandPath(tr.upper, tr.lower);
+        return p ? <path key={`b${tr.label}`} d={p} fill={tr.color} fillOpacity={0.15} stroke='none' /> : null;
+      })}
+      {traces.map((tr) =>
+        tr.mean.length ? (
+          <path key={`l${tr.label}`} d={linePath(tr.mean)}
+            fill='none' stroke={tr.color} strokeWidth={1.6}
+            strokeLinecap='round' strokeLinejoin='round' opacity={0.9} />
+        ) : null,
+      )}
+      {traces.map((tr, i) => (
+        <g key={`leg${i}`} transform={`translate(${PAD.l + 4 + i * 74}, 10)`}>
+          <line x1={0} x2={10} y1={4} y2={4} stroke={tr.color} strokeWidth={1.8} strokeLinecap='round' />
+          <text x={13} y={7} fontSize={7.5} fill='#6B7280'>{tr.label}</text>
+        </g>
+      ))}
     </svg>
   );
 }
