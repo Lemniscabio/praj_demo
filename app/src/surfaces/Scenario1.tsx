@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { SectionTitle, Pill, Button } from "../components/ui";
+import { SectionTitle, Button } from "../components/ui";
 import { Reactor } from "../components/Reactor";
 import { FleetTrajectory, scaleColor } from "../components/FleetTrajectory";
 import { loadWhatIfGrid, type WhatIfGrid } from "../lib/whatif";
@@ -10,7 +10,6 @@ import { cn } from "../lib/cn";
 const ROLE_BY_INDEX = ["Lab", "Pilot", "Demo", "Production"];
 
 export function Scenario1Surface() {
-  const modelFitted = useApp((s) => s.modelFitted);
   const setSurface = useApp((s) => s.setSurface);
 
   const [grid, setGrid] = useState<WhatIfGrid | null>(null);

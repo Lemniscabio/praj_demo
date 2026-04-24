@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { SectionTitle, Button, Pill } from "../components/ui";
+import { SectionTitle, Button } from "../components/ui";
 import { BatchPlot, type Point } from "../components/BatchPlot";
 import { loadCSV } from "../lib/csv";
-import { useApp } from "../lib/store";
 import { cn } from "../lib/cn";
 
 type Phase = "ready" | "playing" | "anomaly" | "intervention" | "compare";
@@ -120,7 +119,6 @@ function saveS2(phase: Phase, selected: string | null, species: SpeciesKey) {
 /* ── Surface ──────────────────────────────────────────────────────────── */
 
 export function Scenario2Surface() {
-  const modelFitted = useApp((s) => s.modelFitted);
 
   const saved = useRef(loadS2()).current;
 
@@ -182,6 +180,13 @@ export function Scenario2Surface() {
   const handleSelect  = (id: string) => { setSelectedRaw(id); setPhaseRaw("intervention"); saveS2("intervention", id, species); };
   const handleReset   = () => { setSelectedRaw(""); setPhaseRaw("anomaly"); saveS2("anomaly", "", species); };
   const handleCompare = () => { setSelectedRaw(null); setPhaseRaw("compare"); saveS2("compare", null, species); };
+  const handleRestart = () => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    setNoisyIdx(0);
+    setSelectedRaw("");
+    setPhaseRaw("ready");
+    saveS2("ready", "", species);
+  };
 
   const showingPredictions = phase === "intervention" || phase === "compare";
   const selectedIv  = INTERVENTIONS.find((i) => i.id === selected);
@@ -285,10 +290,15 @@ export function Scenario2Surface() {
                 {phase === "compare" && "Comparing all five rescue scenarios."}
               </div>
               <div className="flex items-center gap-2">
+                {phase !== "ready" && (
+                  <Button variant="ghost" size="sm" onClick={handleRestart}>
+                    Restart batch
+                  </Button>
+                )}
                 {phase === "ready" && (
                   <Button onClick={handlePlay}>
                     <svg viewBox="0 0 16 16" width="11" height="11" fill="currentColor"><path d="M4 3v10l9-5z"/></svg>
-                    Play
+                    Start batch
                   </Button>
                 )}
                 {(phase === "intervention" || phase === "compare") && (
