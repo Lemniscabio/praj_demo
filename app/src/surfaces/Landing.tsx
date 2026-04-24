@@ -44,7 +44,7 @@ export function LandingSurface() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <SubfigureFrame
               title="Model development"
-              blurb="LABS turns process data into a clean batch dataset. It then fits hybrid models to predict biomass, titre, substrate use, and batch trajectory."
+              blurb="LABS turns process data into a clean dataset. It then fits hybrid models to predict biomass, titre, substrate use, and batch trajectory."
               hint="Model development"
               onOpen={() => setSurface("fit")}
             >
@@ -89,7 +89,7 @@ export function LandingSurface() {
             </div>
             <div className="col-span-12 md:col-span-9 self-start space-y-5 text-[15px] text-ink-soft leading-[1.7] serif">
               <p>
-                Batch reactor data for lactic acid production using{" "}
+                Process data for lactic acid production using{" "}
                 <em>Lactobacillus coryniformis</em> subsp.{" "}
                 <em>torquens</em> DSM 20004 was sourced from Gonzalez&nbsp;[1].
                 The mixed feed consists of maltose and glucose; maltose is
@@ -144,7 +144,7 @@ export function LandingSurface() {
               </div>
 
               <p>
-                The system has 4 ODEs and 7 fitting parameters. The batch data
+                The system has 4 ODEs and 7 fitting parameters. The process
                 was fitted to this mechanistic model to recover a consistent
                 nominal trajectory before scale-up.
               </p>
@@ -165,8 +165,7 @@ export function LandingSurface() {
             </div>
             <div className="col-span-12 md:col-span-9 self-start pt-12 space-y-4 text-[15px] text-ink-soft leading-[1.7] serif">
               <p>
-                The fitted batch model was extended to fed-batch by adding
-                dilution terms and time-evolving reactor volume. Three
+                Three
                 scale-relevant effects were then incorporated:
               </p>
               <ul className="space-y-2 pl-5 list-disc marker:text-muted-soft">
