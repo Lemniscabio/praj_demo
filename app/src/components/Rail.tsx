@@ -4,7 +4,7 @@ import { cn } from "../lib/cn";
 const items: { id: Surface; label: string; hint: string; icon: React.ReactNode }[] = [
   {
     id: "fit",
-    label: "Model Fitting",
+    label: "Model development",
     hint: "Ingest · Configure · Fit",
     icon: (
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
@@ -27,7 +27,7 @@ const items: { id: Surface; label: string; hint: string; icon: React.ReactNode }
   },
   {
     id: "scenario2",
-    label: "Anomaly rescue",
+    label: "Real-time monitoring",
     hint: "Feed drift · intervention",
     icon: (
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
@@ -44,9 +44,9 @@ export function Rail() {
 
   return (
     <aside className="shrink-0 w-[240px] border-r border-hairline bg-canvas flex flex-col">
-      <div className="px-5 pt-6 pb-5">
-        <img src="/lemnisca-logo.svg" alt="Lemnisca" className="h-[22px] w-auto" />
-        <div className="text-[11px] text-muted tracking-wide uppercase mt-1.5">Bioprocess Studio</div>
+      <div className="px-5 pt-6 pb-5 flex items-end gap-2">
+        <img src="/lemnisca-logo.svg" alt="Lemnisca" className="h-[30px] w-auto" />
+        <span className="text-[18px] text-muted tabular tracking-[0.04em] leading-none translate-y-[-2.5px]">LABS</span>
       </div>
 
       <nav className="px-3 flex flex-col gap-0.5">

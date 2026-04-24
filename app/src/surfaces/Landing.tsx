@@ -3,7 +3,6 @@ import { motion } from "framer-motion";
 import { useApp } from "../lib/store";
 import { loadWhatIfGrid, type WhatIfGrid } from "../lib/whatif";
 import { loadCSV } from "../lib/csv";
-import { cn } from "../lib/cn";
 
 type GoldenRow = Record<string, number | string>;
 type ScenRow = Record<string, number | string>;
@@ -23,13 +22,6 @@ export function LandingSurface() {
           transition={{ duration: 0.5, ease: [0.23, 1, 0.32, 1] }}
           className="flex flex-col gap-7"
         >
-          <div className="flex items-baseline gap-3">
-            <span className="text-[11px] uppercase tracking-[0.14em] text-muted tabular">
-              Lemnisca · demo build · 2026
-            </span>
-            <span className="h-px flex-1 bg-hairline/70" />
-          </div>
-
           <h1 className="serif text-[clamp(42px,6.2vw,78px)] leading-[1.02] text-ink tracking-[-0.01em]">
             Lactic Acid Bioprocess
             <br />
@@ -37,38 +29,9 @@ export function LandingSurface() {
           </h1>
 
           <p className="text-[18px] text-ink-soft leading-[1.6] max-w-[64ch]">
-            A hybrid-modelling demo for fermentation data. LABS fits mechanistic
-            and machine-learning models together, runs what-if scenarios across
-            reactor scale, and suggests rescue actions when a live batch drifts
-            from its golden trajectory — each prediction carried with its own ±2σ
-            uncertainty envelope.
+            The lactic acid bioprocess simulation (LABS) showcases how a hybrid
+            model is built and two use cases of the digital twin.
           </p>
-
-          <p className="text-[14.5px] text-muted leading-relaxed max-w-[64ch]">
-            Three linked workflows, shown as Figure 1 below — click any panel to
-            open it.
-          </p>
-
-          <div className="flex items-center gap-5 pt-1">
-            <button
-              onClick={() => setSurface("fit")}
-              className="press inline-flex items-center gap-2 h-12 px-6 rounded-full bg-ink text-canvas text-[14px] font-medium hover:bg-ink-soft transition-colors"
-            >
-              Open the demo
-              <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 8h10m-4-4 4 4-4 4" />
-              </svg>
-            </button>
-            <a
-              href="#method"
-              className="inline-flex items-center gap-1.5 text-[13.5px] text-muted hover:text-ink transition-colors"
-            >
-              Read the method
-              <svg viewBox="0 0 16 16" width="10" height="10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M4 6l4 4 4-4" />
-              </svg>
-            </a>
-          </div>
         </motion.header>
 
         {/* ── Figure 1 — Triptych ──────────────────────────────────────── */}
@@ -80,131 +43,241 @@ export function LandingSurface() {
         >
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <SubfigureFrame
-              letter="a"
-              title="Data extraction"
-              subtitle="raw PDF → structured table"
-              hint="Process data"
+              title="Model development"
+              blurb="LABS turns process data into a clean batch dataset. It then fits hybrid models to predict biomass, titre, substrate use, and batch trajectory."
+              hint="Model development"
               onOpen={() => setSurface("fit")}
             >
               <FigureExtract />
             </SubfigureFrame>
             <SubfigureFrame
-              letter="b"
-              title="Parameter grid"
-              subtitle="scale × dilution × GF"
+              title="What-if simulator"
+              blurb="Use the trained model to test reactor scale, dilution rate, and feed composition. LABS predicts key KPIs so users can compare options before fixing the operating envelope."
               hint="What-if simulator"
               onOpen={() => setSurface("scenario1")}
             >
               <FigureGrid />
             </SubfigureFrame>
             <SubfigureFrame
-              letter="c"
-              title="Anomaly rescue"
-              subtitle="golden ghost vs. live trajectory"
-              hint="Anomaly rescue"
+              title="Real-time monitoring"
+              blurb="Track a live batch against the golden trajectory. When it drifts, LABS forecasts the likely outcome and recommends feed-flow corrections with ±2σ uncertainty envelopes."
+              hint="Real-time monitoring"
               onOpen={() => setSurface("scenario2")}
             >
               <FigureGhost />
             </SubfigureFrame>
           </div>
-
-          <p className="mt-6 text-[14px] text-ink-soft leading-[1.7] serif italic">
-            <span className="not-italic serif text-ink">Figure 1 —</span>{" "}
-            The three stages of the LABS workflow. Raw lab data is extracted from
-            PDFs or spreadsheets and fit to a hybrid model{" "}
-            <span className="not-italic text-muted tabular">(a)</span>; the
-            trained model is explored across reactor scale, dilution rate, and
-            glucose fraction to predict key performance indicators{" "}
-            <span className="not-italic text-muted tabular">(b)</span>; and when
-            a live batch diverges from its golden trajectory, the model proposes
-            corrective feed-flowrate actions carried with ±2σ uncertainty
-            envelopes{" "}
-            <span className="not-italic text-muted tabular">(c)</span>.
-            <sup className="text-muted-soft tabular"> 1</sup>
-          </p>
         </motion.section>
 
-        {/* ── Demo note ────────────────────────────────────────────────── */}
-        <section className="mt-20 border-y border-hairline py-6">
-          <div className="flex items-start gap-6">
-            <span className="mt-0.5 text-[10.5px] uppercase tracking-[0.16em] font-semibold text-signal tabular shrink-0">
-              Demo note
-            </span>
-            <p className="flex-1 text-[14px] text-ink-soft leading-relaxed serif italic">
-              This is a demo version. Synthetic data generated using a mechanistic
-              model from literature and suitable additional assumptions has been
-              used to mimic experimental measurements. Hybrid model training and
-              predictions have been performed offline; the demo version displays
-              final results of training and predictions.
-            </p>
+        {/* ── Methodology ──────────────────────────────────────────────── */}
+        <section id="methodology" className="mt-24">
+          <h2 className="serif text-[32px] text-ink leading-tight tracking-[-0.01em]">
+            Methodology
+          </h2>
+
+          {/* 01 — Model formulation */}
+          <div className="mt-10 grid grid-cols-12 gap-6">
+            <div className="col-span-12 md:col-span-3 pt-[3px] flex gap-3">
+              <div className="hidden md:flex flex-col items-center pt-[5px] shrink-0">
+                <div className="w-[7px] h-[7px] rounded-full bg-hairline-strong shrink-0" />
+                <div className="w-px bg-hairline flex-1 mt-1" />
+              </div>
+              <div>
+                <span className="text-[11px] uppercase tracking-[0.14em] text-muted tabular">01</span>
+                <div className="serif text-[17px] text-ink mt-0.5">Model formulation</div>
+              </div>
+            </div>
+            <div className="col-span-12 md:col-span-9 self-start space-y-5 text-[15px] text-ink-soft leading-[1.7] serif">
+              <p>
+                Batch reactor data for lactic acid production using{" "}
+                <em>Lactobacillus coryniformis</em> subsp.{" "}
+                <em>torquens</em> DSM 20004 was sourced from Gonzalez&nbsp;[1].
+                The mixed feed consists of maltose and glucose; maltose is
+                converted extracellularly to glucose, which drives microbial
+                growth. Product formation (lactic acid) follows a mixed
+                growth-associated pathway with product inhibition. Growth rate
+                is modelled via Monod kinetics with a product-inhibition term.
+              </p>
+
+              {/* Reaction flow chart */}
+              <div className="rounded-xl bg-canvas border border-hairline px-6 py-5">
+                <div className="text-[10.5px] uppercase tracking-[0.14em] text-muted mb-4">Reaction system</div>
+                <svg viewBox="0 0 520 56" className="w-full max-w-[480px] h-auto" preserveAspectRatio="xMidYMid meet">
+                  {/* Nodes */}
+                  {[
+                    { x: 10,  label: "M", sub: "Maltose"  },
+                    { x: 150, label: "S", sub: "Glucose"  },
+                    { x: 290, label: "X", sub: "Biomass"  },
+                    { x: 430, label: "P", sub: "Product"  },
+                  ].map(({ x, label, sub }) => (
+                    <g key={label}>
+                      <rect x={x} y={4} width={68} height={32} rx={6}
+                        fill="#F5F3EF" stroke="#C2BEB4" strokeWidth={1.1} />
+                      <text x={x + 24} y={24} fontSize={13} fontWeight={600}
+                        fill="#1C1E22" fontFamily="JetBrains Mono, monospace" textAnchor="middle">{label}</text>
+                      <text x={x + 24} y={50} fontSize={9} fill="#9AA0A6"
+                        fontFamily="Inter, sans-serif" textAnchor="middle">{sub}</text>
+                    </g>
+                  ))}
+                  {/* Arrows */}
+                  {[78, 218, 358].map((ax) => (
+                    <g key={ax}>
+                      <line x1={ax} y1={20} x2={ax + 56} y2={20} stroke="#C2BEB4" strokeWidth={1.4} />
+                      <polygon points={`${ax + 56},16 ${ax + 68},20 ${ax + 56},24`} fill="#C2BEB4" />
+                    </g>
+                  ))}
+                </svg>
+              </div>
+
+              {/* Equations */}
+              <div className="rounded-xl bg-canvas border border-hairline px-6 py-5">
+                <div className="text-[10.5px] uppercase tracking-[0.14em] text-muted mb-4">Model equations</div>
+                <div className="space-y-3 font-mono text-[13.5px] text-ink">
+                  <MathRow lhs={<><MF t="dX" b="dt" /> = μX</>} />
+                  <MathRow lhs={<><MF t="dS" b="dt" /> = −<MF t="1" b="Y" />(αμX + βX) + k<sub>M</sub>M</>} />
+                  <MathRow lhs={<><MF t="dP" b="dt" /> = αμX + βX</>} />
+                  <MathRow lhs={<><MF t="dM" b="dt" /> = −k<sub>M</sub>M</>} />
+                  <div className="border-t border-hairline/60 pt-3">
+                    <MathRow lhs={<>μ = <MF t={<>μ<sub>max</sub>S</>} b={<>K<sub>s</sub> + S</>} />·<span className="align-middle">(1 − <MF t="P" b={<>P<sub>max</sub></>} />)<sup>3</sup></span></>} />
+                  </div>
+                </div>
+              </div>
+
+              <p>
+                The system has 4 ODEs and 7 fitting parameters. The batch data
+                was fitted to this mechanistic model to recover a consistent
+                nominal trajectory before scale-up.
+              </p>
+            </div>
+          </div>
+
+          {/* 02 — Synthetic data generation */}
+          <div className="mt-0 grid grid-cols-12 gap-6">
+            <div className="col-span-12 md:col-span-3 pt-[3px] flex gap-3">
+              <div className="hidden md:flex flex-col items-center pt-[5px] shrink-0">
+                <div className="w-[7px] h-[7px] rounded-full bg-hairline-strong shrink-0" />
+                <div className="w-px bg-hairline flex-1 mt-1" />
+              </div>
+              <div>
+                <span className="text-[11px] uppercase tracking-[0.14em] text-muted tabular">02</span>
+                <div className="serif text-[17px] text-ink mt-0.5">Synthetic data generation</div>
+              </div>
+            </div>
+            <div className="col-span-12 md:col-span-9 self-start pt-12 space-y-4 text-[15px] text-ink-soft leading-[1.7] serif">
+              <p>
+                The fitted batch model was extended to fed-batch by adding
+                dilution terms and time-evolving reactor volume. Three
+                scale-relevant effects were then incorporated:
+              </p>
+              <ul className="space-y-2 pl-5 list-disc marker:text-muted-soft">
+                <li>
+                  <strong className="text-ink font-medium">Oxygen dependence.</strong>{" "}
+                  Microbial growth was coupled to dissolved oxygen; gas–liquid
+                  mass transfer was modelled via a k<sub className="text-[11px]">L</sub>a
+                  correlation (Linek et al.&nbsp;[2]).
+                </li>
+                <li>
+                  <strong className="text-ink font-medium">pH dependence.</strong>{" "}
+                  A pH penalty below 5 was applied to the growth term.
+                </li>
+                <li>
+                  <strong className="text-ink font-medium">Two-zone mixing model.</strong>{" "}
+                  Each reactor was partitioned into active and dead zones
+                  (both modelled as CSTRs). The dead zone occupies a
+                  scale-dependent fraction of total volume:{" "}
+                  <span className="tabular">1%</span> at 10 L,{" "}
+                  <span className="tabular">5%</span> at 1 000 L, and{" "}
+                  <span className="tabular">15%</span> at 10 000 L. pH is
+                  controlled at 5 in the active zone but drifts in the dead
+                  zone based on lactic acid concentration; k<sub className="text-[11px]">L</sub>a
+                  is also diminished there.
+                </li>
+              </ul>
+              <p>
+                This multi-zone model generated{" "}
+                <span className="tabular font-medium text-ink">100 synthetic batches</span>:
+                50 at 10 L, 40 at 1 000 L, and 10 at 10 000 L — reflecting the
+                decreasing ease of sampling at larger scale. Each batch was
+                initialised with differing values of initial biomass, initial feed
+                concentration, glucose-to-maltose ratio, and feed rate. Gaussian
+                noise was added to all predicted states to mimic experimental
+                uncertainty. Conversion from raw data to structured records was
+                accomplished with an LLM-based ingestion workflow.
+              </p>
+            </div>
+          </div>
+
+          {/* 03 — Data splitting */}
+          <div className="mt-0 grid grid-cols-12 gap-6">
+            <div className="col-span-12 md:col-span-3 pt-[3px] flex gap-3">
+              <div className="hidden md:flex flex-col items-center pt-[5px] shrink-0">
+                <div className="w-[7px] h-[7px] rounded-full bg-hairline-strong shrink-0" />
+                <div className="w-px bg-hairline flex-1 mt-1" />
+              </div>
+              <div>
+                <span className="text-[11px] uppercase tracking-[0.14em] text-muted tabular">03</span>
+                <div className="serif text-[17px] text-ink mt-0.5">Data splitting</div>
+              </div>
+            </div>
+            <div className="col-span-12 md:col-span-9 self-start pt-12 space-y-4 text-[15px] text-ink-soft leading-[1.7] serif">
+              <p>
+                The structured data was divided into training and test sets
+                batch-wise: each batch is either entirely in the training set or
+                entirely in the test set, so the model is never evaluated on
+                interpolated data it has partially seen. The training fraction is
+                set to <span className="tabular">70%</span> in this demo.
+              </p>
+            </div>
+          </div>
+
+          {/* 04 — Model training */}
+          <div className="mt-0 grid grid-cols-12 gap-6">
+            <div className="col-span-12 md:col-span-3 pt-[3px] flex gap-3">
+              <div className="hidden md:flex flex-col items-center pt-[5px] shrink-0">
+                <div className="w-[7px] h-[7px] rounded-full bg-hairline-strong shrink-0" />
+              </div>
+              <div>
+                <span className="text-[11px] uppercase tracking-[0.14em] text-muted tabular">04</span>
+                <div className="serif text-[17px] text-ink mt-0.5">Model training</div>
+              </div>
+            </div>
+            <div className="col-span-12 md:col-span-9 self-start pt-12 space-y-4 text-[15px] text-ink-soft leading-[1.7] serif">
+              <p>
+                LABS supports RNN, Neural ODE, and PINN architectures. For this
+                demo an <strong className="text-ink font-medium">RNN</strong> was
+                selected for its simplicity and strong suitability for time-series
+                data. A mass-balance constraint was added to the loss function to
+                preserve physical consistency. Uncertainty envelopes are produced
+                via <strong className="text-ink font-medium">Monte Carlo dropout</strong>,
+                giving ±2σ prediction bands without a separate ensemble.
+              </p>
+              <p>
+                After training, the model was validated on the held-out test set
+                using MAE, RMSE, and R². The validated model is used in the
+                what-if simulator and real-time monitoring workflows above.
+              </p>
+            </div>
+          </div>
+
+          {/* References */}
+          <div className="mt-12 pt-8 border-t border-hairline">
+            <div className="text-[10.5px] uppercase tracking-[0.14em] text-muted mb-3">References</div>
+            <ol className="space-y-2 text-[13px] text-ink-soft leading-relaxed list-decimal pl-4">
+              <li>
+                Gonzalez, K. V. "Modeling and robust control of biological systems:
+                example of lactic acid production in industrial fermenter."
+                PhD diss., Ecole Centrale Paris, 2015.
+              </li>
+              <li>
+                Linek, V., Kordač, M., Fujasová, M., &amp; Moucha, T. "Gas–liquid
+                mass transfer coefficient in stirred tanks interpreted through
+                models of idealized eddy structure of turbulence in the bubble
+                vicinity." <em>Chemical Engineering and Processing</em> 43, no. 12 (2004): 1511–1517.
+              </li>
+            </ol>
           </div>
         </section>
 
-        {/* ── 01 Method ────────────────────────────────────────────────── */}
-        <section id="method" className="mt-20 grid grid-cols-12 gap-6">
-          <div className="col-span-12 md:col-span-2">
-            <span className="text-[11px] uppercase tracking-[0.14em] text-muted tabular">
-              01
-            </span>
-            <div className="serif text-[15px] text-ink mt-1">Method</div>
-          </div>
-          <div className="col-span-12 md:col-span-10 space-y-4">
-            <p className="text-[16px] text-ink-soft leading-[1.7] serif">
-              LABS works with raw lab data across different scales involved in
-              bioprocess development. It fits your data to hybrid models that
-              blend the flexibility of data-driven approaches with the scientific
-              rigor of mechanistic approaches.
-            </p>
-            <p className="text-[16px] text-ink-soft leading-[1.7] serif">
-              The trained hybrid models can then be employed in what-if scenarios
-              to predict key performance indicators as a function of controlled
-              variables. They can also help you take corrective action when a
-              batch deviates from the golden trajectory — suggested actions are
-              accompanied by uncertainty envelopes from the model itself.
-            </p>
-          </div>
-        </section>
-
-        {/* ── 02 Enter a workflow ──────────────────────────────────────── */}
-        <section className="mt-20 grid grid-cols-12 gap-6">
-          <div className="col-span-12 md:col-span-2">
-            <span className="text-[11px] uppercase tracking-[0.14em] text-muted tabular">
-              02
-            </span>
-            <div className="serif text-[15px] text-ink mt-1">Enter</div>
-          </div>
-          <div className="col-span-12 md:col-span-10 grid grid-cols-1 md:grid-cols-3 gap-4">
-            <WorkflowCard
-              n="01"
-              title="Process data"
-              body="Ingest raw lab data, review the structured extract, configure a hybrid model, fit, and inspect per-species test metrics."
-              onClick={() => setSurface("fit")}
-            />
-            <WorkflowCard
-              n="02"
-              title="What-if simulator"
-              body="Explore predicted trajectories across reactor scale, dilution rate, and glucose fraction. Mean ± 2σ bands drawn from the hybrid model."
-              onClick={() => setSurface("scenario1")}
-            />
-            <WorkflowCard
-              n="03"
-              title="Anomaly rescue"
-              body="A live batch drifts from the golden trajectory. Compare five feed-flowrate rescues and pick one based on model-predicted endpoints."
-              onClick={() => setSurface("scenario2")}
-            />
-          </div>
-        </section>
-
-        {/* ── Footer ───────────────────────────────────────────────────── */}
-        <footer className="mt-24 pt-6 border-t border-hairline flex items-center justify-between text-[11.5px] tabular text-muted-soft">
-          <div className="flex items-center gap-2">
-            <img src="/lemnisca-logo.svg" alt="Lemnisca" className="h-[16px] w-auto opacity-70" />
-            <span>Demo build · synthetic data · trained offline</span>
-          </div>
-          <span>
-            <sup>1</sup> Mechanistic reference: literature kinetics for lactic-acid fermentation.
-          </span>
-        </footer>
       </div>
     </div>
   );
@@ -213,6 +286,7 @@ export function LandingSurface() {
 /* ─── Top bar ─────────────────────────────────────────────────────────── */
 
 function TopBar() {
+  const setSurface = useApp((s) => s.setSurface);
   // A soft, non-linear blur that fades out through the bottom edge. The
   // outer wrapper is a fixed-height strip; inside, a second layer carries
   // the backdrop-blur masked by a vertical gradient so the blur strength
@@ -231,14 +305,35 @@ function TopBar() {
             "linear-gradient(to bottom, rgba(251,250,247,0.78) 40%, rgba(251,250,247,0.42) 75%, rgba(251,250,247,0) 100%)",
         }}
       />
-      <div className="relative mx-auto max-w-[1240px] px-10 h-20 flex items-center justify-between pointer-events-auto">
-        <div className="flex items-center gap-3">
-          <img src="/lemnisca-logo.svg" alt="Lemnisca" className="h-[22px] w-auto" />
-          <span className="text-[12.5px] text-muted tabular tracking-wide">LABS</span>
+      <div className="relative mx-auto max-w-[1440px] px-10 h-24 flex items-center justify-between pointer-events-auto">
+        <div className="flex items-end gap-2.5">
+          <img src="/lemnisca-logo.svg" alt="Lemnisca" className="h-[30px] w-auto" />
+          <span className="text-[18px] text-muted tabular tracking-[0.04em] leading-none translate-y-[-2.5px]">LABS</span>
         </div>
-        <span className="text-[11.5px] text-muted-soft tabular">
-          demo · synthetic data · trained offline
-        </span>
+        <motion.button
+          onClick={() => setSurface("fit")}
+          initial="rest"
+          whileHover="hover"
+          whileTap="tap"
+          variants={{ tap: { scale: 0.97 } }}
+          transition={{ duration: 0.1, ease: [0.23, 1, 0.32, 1] }}
+          className="flex items-center justify-center overflow-hidden bg-ink rounded-full px-6 py-2.5 [transition:background-color_180ms_cubic-bezier(0.23,1,0.32,1)] hover:bg-ink/85"
+        >
+          <motion.span
+            className="flex items-center"
+            variants={{ rest: { x: 9 }, hover: { x: 0 } }}
+            transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+          >
+            <span className="text-[13px] font-medium text-[#FAFAF8] tracking-[0.02em]">Explore the model</span>
+            <motion.span
+              className="ml-2 text-[#FAFAF8] text-[13px]"
+              variants={{ rest: { x: 16, opacity: 0 }, hover: { x: 0, opacity: 1 } }}
+              transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+            >
+              →
+            </motion.span>
+          </motion.span>
+        </motion.button>
       </div>
     </div>
   );
@@ -247,16 +342,14 @@ function TopBar() {
 /* ─── Subfigure frame ─────────────────────────────────────────────────── */
 
 function SubfigureFrame({
-  letter,
   title,
-  subtitle,
+  blurb,
   hint,
   children,
   onOpen,
 }: {
-  letter: "a" | "b" | "c";
   title: string;
-  subtitle: string;
+  blurb: string;
   hint: string;
   children: React.ReactNode;
   onOpen: () => void;
@@ -264,17 +357,12 @@ function SubfigureFrame({
   return (
     <button
       onClick={onOpen}
-      className="group text-left rounded-2xl bg-canvas-raised/60 border border-hairline overflow-hidden hover:border-hairline-strong transition-all duration-200 hover:-translate-y-[1px] hover:shadow-[0_6px_22px_rgba(28,30,34,0.05)]"
+      className="group text-left rounded-2xl bg-canvas-raised/60 border border-hairline overflow-hidden hover:border-hairline-strong transition-all duration-200 hover:-translate-y-[1px] hover:shadow-[0_6px_22px_rgba(28,30,34,0.05)] flex flex-col"
     >
-      {/* Label strip */}
-      <div className="flex items-baseline justify-between px-4 pt-3.5 pb-2.5 border-b border-hairline/60">
-        <div className="flex items-baseline gap-2">
-          <span className="text-[10.5px] uppercase tracking-[0.14em] tabular text-muted-soft">
-            Fig. 1{letter}
-          </span>
-          <span className="text-[13px] text-ink serif">{title}</span>
-        </div>
-        <span className="text-[10.5px] tabular text-muted-soft hidden sm:inline">{subtitle}</span>
+      {/* Title + blurb */}
+      <div className="px-4 pt-4 pb-3 border-b border-hairline/60">
+        <div className="serif text-[16px] text-ink leading-tight">{title}</div>
+        <p className="mt-2 text-[12.5px] text-ink-soft leading-[1.55]">{blurb}</p>
       </div>
 
       {/* Figure body */}
@@ -285,14 +373,8 @@ function SubfigureFrame({
       </div>
 
       {/* Footer hint */}
-      <div className="flex items-center justify-between px-4 py-3 border-t border-hairline/60 bg-canvas-raised/40">
+      <div className="flex items-center px-4 py-3 border-t border-hairline/60 bg-canvas-raised/40">
         <span className="text-[11.5px] text-muted">Opens: {hint}</span>
-        <span className="inline-flex items-center gap-1 text-[11.5px] text-muted-soft group-hover:text-ink transition-colors">
-          open
-          <svg viewBox="0 0 16 16" width="10" height="10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="group-hover:translate-x-[1px] transition-transform">
-            <path d="M3 8h10m-4-4 4 4-4 4" />
-          </svg>
-        </span>
       </div>
     </button>
   );
@@ -320,7 +402,7 @@ function FigureExtract() {
             stroke="#D8D5CE" strokeWidth="2.2" strokeLinecap="round"
             initial={{ opacity: 0.25 }}
             animate={{ opacity: [0.25, 0.9, 0.25] }}
-            transition={{ duration: 5.4, delay: i * 0.3, repeat: Infinity, ease: "easeInOut" }}
+            transition={{ duration: 2.6, delay: i * 0.15, repeat: Infinity, ease: "easeInOut" }}
           />
         ))}
       </g>
@@ -331,15 +413,15 @@ function FigureExtract() {
         stroke="#4E8B73" strokeWidth="1.6" fill="none" strokeLinecap="round"
         initial={{ pathLength: 0 }}
         animate={{ pathLength: 1 }}
-        transition={{ duration: 2.2, ease: "easeInOut" }}
+        transition={{ duration: 1.1, ease: "easeInOut" }}
       />
       <motion.circle cx="208" cy="130" r="3" fill="#4E8B73"
         initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-        transition={{ duration: 0.4, delay: 2.1 }} />
+        transition={{ duration: 0.25, delay: 1.05 }} />
       <motion.text x="168" y="123" fontSize="8.5" fill="#4E8B73"
         fontFamily="JetBrains Mono, monospace" textAnchor="middle"
         initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-        transition={{ duration: 0.45, delay: 1.2 }}
+        transition={{ duration: 0.25, delay: 0.6 }}
       >
         extract
       </motion.text>
@@ -365,7 +447,7 @@ function FigureExtract() {
                 fontFamily="JetBrains Mono, monospace"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                transition={{ duration: 0.35, delay: 2.3 + r * 0.12 + c * 0.03 }}
+                transition={{ duration: 0.22, delay: 1.15 + r * 0.06 + c * 0.015 }}
               >
                 {c === 0 ? (r * 5).toString() : (6 + r * 3.2 + c * 1.1).toFixed(1)}
               </motion.text>
@@ -401,7 +483,7 @@ function FigureGrid() {
         const nc = Math.max(0, Math.min(4, col + dc));
         return nr * 5 + nc;
       });
-    }, 9000);
+    }, 4000);
     return () => clearInterval(id);
   }, []);
 
@@ -477,7 +559,7 @@ function FigureGrid() {
                   fill: isHl ? "#EDF4EF" : "#FBFAF7",
                   stroke: isHl ? "#4E8B73" : "#E7E5E0",
                 }}
-                transition={{ duration: 1.0, ease: "easeInOut" }}
+                transition={{ duration: 0.5, ease: "easeInOut" }}
                 strokeWidth={isHl ? 1.4 : 0.8}
               />
               {path && (
@@ -492,7 +574,7 @@ function FigureGrid() {
                     strokeWidth: isHl ? 1.6 : 0.9,
                     opacity: isHl ? 1 : 0.55,
                   }}
-                  transition={{ duration: 1.0, ease: "easeInOut" }}
+                  transition={{ duration: 0.5, ease: "easeInOut" }}
                 />
               )}
             </g>
@@ -515,9 +597,9 @@ function FigureGhost() {
       const pts = rows
         .map((r) => ({
           t: Number(r["Time (h)"]),
-          p: Number(r["P_mean (g/L)"]),
-          lo: Number(r["P_lower95 (g/L)"]),
-          hi: Number(r["P_upper95 (g/L)"]),
+          p: Number(r["P (g/L)"]),
+          lo: Number(r["P_lower (g/L)"]),
+          hi: Number(r["P_upper (g/L)"]),
         }))
         .filter((p) => Number.isFinite(p.t) && Number.isFinite(p.p))
         .sort((a, b) => a.t - b.t);
@@ -547,11 +629,11 @@ function FigureGhost() {
       if (pause > 0) {
         pause -= dt;
         if (pause <= 0) setFrame(0);
-      } else if (dt >= 320) {
+      } else if (dt >= 150) {
         last = now;
         setFrame((f) => {
           const next = f + 1;
-          if (next >= rescue.length) { pause = 2400; return rescue.length; }
+          if (next >= rescue.length) { pause = 1200; return rescue.length; }
           return next;
         });
       }
@@ -656,35 +738,22 @@ function FigureGhost() {
   );
 }
 
-/* ─── Workflow card ───────────────────────────────────────────────────── */
+/* ─── Math helpers (methodology equations) ───────────────────────────── */
 
-function WorkflowCard({
-  n,
-  title,
-  body,
-  onClick,
-}: {
-  n: string;
-  title: string;
-  body: string;
-  onClick: () => void;
-}) {
+function MF({ t, b }: { t: React.ReactNode; b: React.ReactNode }) {
   return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "group text-left rounded-2xl bg-canvas-raised/60 border border-hairline p-5",
-        "hover:border-hairline-strong hover:-translate-y-[1px] transition-all duration-200"
-      )}
-    >
-      <div className="flex items-baseline justify-between">
-        <span className="text-[11px] uppercase tracking-[0.14em] text-muted-soft tabular">{n}</span>
-        <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="text-muted-soft group-hover:text-ink transition-colors">
-          <path d="M3 8h10m-4-4 4 4-4 4" />
-        </svg>
-      </div>
-      <div className="serif text-[18px] text-ink mt-2 leading-tight">{title}</div>
-      <p className="mt-2 text-[13px] text-ink-soft leading-relaxed">{body}</p>
-    </button>
+    <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", verticalAlign: "middle", margin: "0 2px", lineHeight: 1.15 }}>
+      <span style={{ borderBottom: "1px solid #3A3D42", paddingBottom: 1, paddingLeft: 2, paddingRight: 2, whiteSpace: "nowrap" }}>{t}</span>
+      <span style={{ paddingTop: 1, paddingLeft: 2, paddingRight: 2, whiteSpace: "nowrap" }}>{b}</span>
+    </span>
   );
 }
+
+function MathRow({ lhs }: { lhs: React.ReactNode }) {
+  return (
+    <div className="flex items-center leading-none py-1 text-ink" style={{ fontFamily: "JetBrains Mono, monospace" }}>
+      {lhs}
+    </div>
+  );
+}
+

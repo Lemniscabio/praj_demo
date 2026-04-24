@@ -7,7 +7,7 @@ import { loadWhatIfGrid, type WhatIfGrid } from "../lib/whatif";
 import { useApp } from "../lib/store";
 import { cn } from "../lib/cn";
 
-const ROLE_BY_INDEX = ["Lab", "Pilot", "Plant", "Industrial"];
+const ROLE_BY_INDEX = ["Lab", "Pilot", "Demo", "Production"];
 
 export function Scenario1Surface() {
   const modelFitted = useApp((s) => s.modelFitted);
@@ -93,13 +93,25 @@ export function Scenario1Surface() {
                 </span>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-hairline/60">
-                {fleetCells.map((c) => {
+                {fleetCells.map((c, idx) => {
+                  const isExtrapolation = idx === fleetCells.length - 1;
                   // Visual size scales logarithmically — 10 L is the smallest,
                   // 150 m³ fills the card. Honest differentiation.
                   const sizeFrac =
                     0.7 + 0.3 * (Math.log10(Math.max(1, c.scaleL)) / Math.log10(150000));
                   return (
-                    <div key={c.scaleKey} className="bg-canvas-raised px-3 pt-3 pb-4 flex flex-col">
+                    <div
+                      key={c.scaleKey}
+                      className={cn(
+                        "bg-canvas-raised px-3 pt-3 pb-4 flex flex-col relative",
+                        isExtrapolation && "opacity-40 grayscale"
+                      )}
+                    >
+                      {isExtrapolation && (
+                        <span className="absolute bottom-2 left-3 text-[9px] uppercase tracking-[0.12em] text-muted-soft bg-canvas/80 border border-hairline rounded-full px-1.5 py-0.5">
+                          extrapolation
+                        </span>
+                      )}
                       <div className="flex items-baseline justify-between px-1 mb-1">
                         <div className="flex items-baseline gap-1.5">
                           <span className="serif text-[15px] text-ink">{formatScale(c.scaleL)}</span>
@@ -137,10 +149,6 @@ export function Scenario1Surface() {
                         <KPI
                           label="Biomass · 75 h"
                           value={c.Xend != null ? `${c.Xend.toFixed(1)} g/L` : "—"}
-                        />
-                        <KPI
-                          label="Residence time"
-                          value={`${(1 / D).toFixed(1)} h`}
                         />
                       </div>
                       <div className="mt-2 h-0.5 rounded-full"
@@ -245,7 +253,7 @@ export function Scenario1Surface() {
                             {formatScale(c.scaleL)}
                           </span>
                         ))}
-                        <span className="text-muted-soft">· ±2σ band shown for production scale only</span>
+                        <span className="text-muted-soft">· Production (150 m³) shown dashed — extrapolation</span>
                       </div>
 
                       <FleetTrajectory grid={grid} dKey={dKey!} gfKey={gfKey!} />

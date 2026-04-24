@@ -24,13 +24,12 @@ const SPECIES = [
   { key: "S", label: "Glucose", unit: "g/L" },
   { key: "P", label: "Lactic Acid", unit: "g/L" },
   { key: "M", label: "Maltose", unit: "g/L" },
-  { key: "V", label: "Volume", unit: "L" },
 ] as const;
 
 type SpeciesKey = (typeof SPECIES)[number]["key"];
 
 export type Config = {
-  modelType: "mechanistic" | "hybrid";
+  modelType: "rnn" | "node" | "pinn";
   system: "lactic" | "isobutanol" | "phb";
   constraints: { mass: boolean; ode: boolean };
   trainFraction: number;
@@ -109,7 +108,7 @@ export function FitSurface() {
   }, [uploadedName]);
 
   const [cfg, setCfg] = useState<Config>({
-    modelType: "hybrid",
+    modelType: "rnn",
     system: "lactic",
     constraints: { mass: true, ode: false },
     trainFraction: 0.7,
@@ -262,7 +261,7 @@ function IngestStage({
                 </div>
                 <div className="text-center">
                   <div className="text-[14px] text-ink">Drop your process file here</div>
-                  <div className="text-[12px] text-muted mt-1">Upload not yet available — use the Praj sample below</div>
+                  <div className="text-[12px] text-muted mt-1">Upload not yet available — use the sample below</div>
                 </div>
                 <div className="flex items-center gap-2">
                   <Button variant="ghost" size="sm" disabled>
@@ -272,7 +271,7 @@ function IngestStage({
               </div>
               <div className="mt-3 flex items-center justify-center">
                 <Button variant="ghost" size="sm" onClick={useSample}>
-                  Use Praj sample
+                  Use sample
                 </Button>
               </div>
             </motion.div>
@@ -453,7 +452,7 @@ function ConfigureStage({
       status={status}
       summary={
         <>
-          <Pill tone="muted">{cfg.modelType === "hybrid" ? "Hybrid" : "Mechanistic"}</Pill>
+          <Pill tone="muted">{({ rnn: "RNN", node: "Neural ODE", pinn: "PINN" } as const)[cfg.modelType]}</Pill>
           <Pill tone="accent">{SYSTEM_LABEL[cfg.system]}</Pill>
           <span className="tabular">
             {Math.round(cfg.trainFraction * 100)}/{100 - Math.round(cfg.trainFraction * 100)} · {cfg.split === "random" ? "random" : "batch-wise"}
@@ -468,8 +467,7 @@ function ConfigureStage({
             label="Model type"
             value={cfg.modelType}
             options={[
-              { v: "hybrid", label: "Hybrid" },
-              { v: "rnn", label: "RNN", disabled: true, suffix: "coming soon" },
+              { v: "rnn", label: "RNN" },
               { v: "node", label: "Neural ODE", disabled: true, suffix: "coming soon" },
               { v: "pinn", label: "PINN", disabled: true, suffix: "coming soon" },
             ]}
@@ -661,7 +659,8 @@ function FitStage({
     cfg.constraints.ode && "ODE system",
   ].filter(Boolean).join(" + ") || "no constraints";
 
-  const summary = `${cfg.modelType === "hybrid" ? "Hybrid" : "Mechanistic"} model · ${SYSTEM_LABEL[cfg.system]} · ${activeConstraints} · ${cfg.split === "random" ? "random" : "batch-wise"} ${Math.round(cfg.trainFraction * 100)}/${100 - Math.round(cfg.trainFraction * 100)}`;
+  const modelLabel = ({ rnn: "RNN", node: "Neural ODE", pinn: "PINN" } as const)[cfg.modelType];
+  const summary = `${modelLabel} model · ${SYSTEM_LABEL[cfg.system]} · ${activeConstraints} · ${cfg.split === "random" ? "random" : "batch-wise"} ${Math.round(cfg.trainFraction * 100)}/${100 - Math.round(cfg.trainFraction * 100)}`;
 
   return (
     <Stage
@@ -829,13 +828,13 @@ function ResultsStage({ status, onToScenario, onRerun }: { status: "pending" | "
           </div>
           <div className="flex items-center gap-5 px-5 pb-4 pt-1 text-[11.5px] text-muted">
             <span className="inline-flex items-center gap-1.5">
-              <span className="w-3 h-[2px]" style={{ background: ({ X: "#1F77B4", S: "#1C1E22", P: "#2CA02C", M: "#D62728", V: "#9467BD" } as const)[species] }} />
+              <span className="w-3 h-[2px]" style={{ background: ({ X: "#1F77B4", S: "#1C1E22", P: "#2CA02C", M: "#D62728" } as const)[species] }} />
               Predicted
             </span>
             <span className="inline-flex items-center gap-1.5">
               <span
                 className="w-1.5 h-1.5 rounded-full"
-                style={{ border: `1.5px solid ${({ X: "#1F77B4", S: "#1C1E22", P: "#2CA02C", M: "#D62728", V: "#9467BD" } as const)[species]}` }}
+                style={{ border: `1.5px solid ${({ X: "#1F77B4", S: "#1C1E22", P: "#2CA02C", M: "#D62728" } as const)[species]}` }}
               />
               Experiment
             </span>
@@ -846,9 +845,12 @@ function ResultsStage({ status, onToScenario, onRerun }: { status: "pending" | "
           <div className="rounded-2xl bg-canvas border border-hairline p-5">
             <div className="text-[11px] uppercase tracking-[0.12em] text-muted mb-3">Test-set metrics</div>
             <div className="space-y-2">
-              {metrics.filter((m) => m.Species !== "Overall").map((m) => {
+              {metrics
+                .filter((m) => m.Species !== "Overall")
+                .filter((m) => typeof m.Species !== "string" || !m.Species.startsWith("Volume"))
+                .map((m) => {
                 const isActive = typeof m.Species === "string" && m.Species.startsWith(
-                  { X: "Biomass", S: "Glucose", P: "Lactic", M: "Maltose", V: "Volume" }[species]
+                  { X: "Biomass", S: "Glucose", P: "Lactic", M: "Maltose" }[species]
                 );
                 const r2 = Number(m.R2);
                 return (
@@ -856,7 +858,7 @@ function ResultsStage({ status, onToScenario, onRerun }: { status: "pending" | "
                     key={String(m.Species)}
                     onClick={() => {
                       const key = String(m.Species).split(" ")[0];
-                      const map: Record<string, SpeciesKey> = { Biomass: "X", Glucose: "S", Lactic: "P", Maltose: "M", Volume: "V" };
+                      const map: Record<string, SpeciesKey> = { Biomass: "X", Glucose: "S", Lactic: "P", Maltose: "M" };
                       setSpecies(map[key] ?? "P");
                     }}
                     className={cn(

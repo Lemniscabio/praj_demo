@@ -8,7 +8,7 @@ const CHANNELS = [
   { key: "Glucose S (g/L)",   label: "Glucose S",  color: "#1C1E22", unit: "g/L"  },
   { key: "Lactic Acid P (g/L)", label: "Lactic P", color: "#2CA02C", unit: "g/L"  },
   { key: "Maltose M (g/L)",   label: "Maltose M",  color: "#D62728", unit: "g/L"  },
-  { key: "Dissolved O2 (g/L)", label: "DO₂",       color: "#17BECF", unit: "g/L"  },
+  { key: "Dissolved O2 (g/L)", label: "DO₂",       color: "#17BECF", unit: "mg/L", scale: 1000 },
   { key: "Volume V (L)",      label: "Volume V",   color: "#9467BD", unit: "L"    },
 ] as const;
 
@@ -51,7 +51,8 @@ function Panel({
   onHover: (t: number | null) => void;
   animDelay: number;
 }) {
-  const channelMax = Math.max(0, ...data.map((d) => d.vals[ch.key]).filter((n) => Number.isFinite(n)));
+  const scale = (ch as { scale?: number }).scale ?? 1;
+  const channelMax = Math.max(0, ...data.map((d) => d.vals[ch.key] * scale).filter((n) => Number.isFinite(n)));
   const yMax = niceMax(channelMax * 1.08);
 
   const xScale = (t: number) => PAD.l + (t / tMax) * (W - PAD.l - PAD.r);
@@ -62,7 +63,7 @@ function Panel({
 
   const pts2 = data.filter((d) => Number.isFinite(d.vals[ch.key]));
 
-  const pts = useMemo(() => data.map((d) => ({ t: d.t, v: d.vals[ch.key] })).filter((p) => Number.isFinite(p.v)), [data, ch.key]);
+  const pts = useMemo(() => data.map((d) => ({ t: d.t, v: d.vals[ch.key] * scale })).filter((p) => Number.isFinite(p.v)), [data, ch.key, scale]);
 
   const svgRef = useRef<SVGSVGElement | null>(null);
   const handleMove = (e: React.MouseEvent<SVGSVGElement>) => {
@@ -114,7 +115,7 @@ function Panel({
           <motion.circle
             key={j}
             cx={xScale(d.t)}
-            cy={yScale(d.vals[ch.key])}
+            cy={yScale(d.vals[ch.key] * scale)}
             r={1.8}
             fill={ch.color}
             opacity={0.75}

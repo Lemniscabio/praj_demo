@@ -42,8 +42,8 @@ function detailFromMult(mult: number, recommended: boolean): string {
 }
 
 const INTERVENTION_SPECS: { mult: number; color: string; recommended?: boolean }[] = [
-  { mult: 0.3, color: "#1F77B4" },
-  { mult: 0.6, color: "#2CA02C", recommended: true },
+  { mult: 0.3, color: "#1F77B4", recommended: true },
+  { mult: 0.6, color: "#2CA02C" },
   { mult: 1.0, color: "#D62728" },
   { mult: 1.3, color: "#FF7F0E" },
   { mult: 1.6, color: "#9467BD" },
@@ -71,9 +71,9 @@ function goldenPoints(rows: GoldenRow[], sp: SpeciesKey): Point[] {
   return rows
     .map((r) => ({
       t:  Number(r["Time (h)"]),
-      p:  Number(r[`${sp}_mean (g/L)`]),
-      lo: Number(r[`${sp}_lower95 (g/L)`]),
-      hi: Number(r[`${sp}_upper95 (g/L)`]),
+      p:  Number(r[`${sp} (g/L)`]),
+      lo: Number(r[`${sp}_lower (g/L)`]),
+      hi: Number(r[`${sp}_upper (g/L)`]),
     }))
     .filter((p) => Number.isFinite(p.t) && Number.isFinite(p.p))
     .sort((a, b) => a.t - b.t);
@@ -127,10 +127,7 @@ export function Scenario2Surface() {
   const [phase,       setPhaseRaw]    = useState<Phase>(saved?.phase ?? "ready");
   const [noisyIdx,    setNoisyIdx]    = useState(0);
   const [selected,    setSelectedRaw] = useState<string | null>(saved?.selected ?? "");
-  const [species,     setSpeciesRaw]  = useState<SpeciesKey>(saved?.species ?? "P");
-
-  // Wrapped setters that also persist
-  const setSpecies = (sp: SpeciesKey)     => { setSpeciesRaw(sp); saveS2(phase, selected, sp); };
+  const [species]  = useState<SpeciesKey>(saved?.species ?? "P");
 
   // Raw CSV data (loaded once)
   const [goldenRows,  setGoldenRows]  = useState<GoldenRow[]>([]);
@@ -211,7 +208,7 @@ export function Scenario2Surface() {
       <div className="flex items-start justify-between gap-6">
         <SectionTitle
           eyebrow="Scenario 02"
-          title="Anomaly rescue"
+          title="Real-time monitoring"
           sub={anomalyT != null
             ? `A live batch drifts from the golden trajectory at t = ${anomalyT} h. Compare rescue actions on feed flowrate and pick one.`
             : "A live batch drifts from the golden trajectory. Compare rescue actions on feed flowrate and pick one."}
@@ -239,21 +236,6 @@ export function Scenario2Surface() {
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                {/* Species switcher */}
-                <div className="flex items-center gap-1 bg-canvas rounded-full border border-hairline p-0.5">
-                  {SPECIES.map((s) => (
-                    <button
-                      key={s.key}
-                      onClick={() => setSpecies(s.key)}
-                      className={cn(
-                        "press tabular h-7 px-2.5 rounded-full text-[11.5px] transition-colors",
-                        species === s.key ? "bg-ink text-canvas" : "text-muted hover:text-ink"
-                      )}
-                    >
-                      {s.key}
-                    </button>
-                  ))}
-                </div>
                 <div className="flex items-center gap-3 text-[11.5px] text-muted tabular">
                   <span className="inline-flex items-center gap-1.5">
                     <span className="inline-block w-4 h-[2.5px] rounded-full bg-[#4E8B73]" />
@@ -332,7 +314,7 @@ export function Scenario2Surface() {
               Feed composition drifted — a higher maltose / lower glucose fraction than expected.
             </p>
             <p className="mt-2 text-[12px] text-muted leading-relaxed">
-              Reducing the feed flowrate cuts dilution, so biomass and glucose stay concentrated and the rate recovers. The model prefers <span className="text-accent">0.6×</span> as the rescue.
+              Reducing the feed flowrate cuts dilution, so biomass and glucose stay concentrated and the rate recovers. The model prefers <span className="text-accent">0.3×</span> as the rescue.
             </p>
           </div>
 
