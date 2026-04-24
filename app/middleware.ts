@@ -1,5 +1,7 @@
+import { next } from '@vercel/edge';
+
 export const config = {
-  matcher: '/((?!_vercel).*)',
+  matcher: '/((?!_vercel|_next/static).*)',
 };
 
 const WHITELIST = new Set<string>([
@@ -9,6 +11,7 @@ const WHITELIST = new Set<string>([
   '/api/logout',
   '/favicon.ico',
   '/lemnisca-logo.svg',
+  '/robots.txt',
 ]);
 
 async function hmacHex(msg: string, secret: string): Promise<string> {
@@ -50,16 +53,16 @@ function parseAuthCookie(header: string | null): string | null {
   return m ? decodeURIComponent(m[1]) : null;
 }
 
-export default async function middleware(req: Request): Promise<Response | undefined> {
+export default async function middleware(req: Request): Promise<Response> {
   const url = new URL(req.url);
   const path = url.pathname;
 
-  if (WHITELIST.has(path)) return undefined;
+  if (WHITELIST.has(path)) return next();
 
   const token = parseAuthCookie(req.headers.get('cookie'));
   const secret = process.env.AUTH_SECRET;
 
-  if (token && secret && (await verifyToken(token, secret))) return undefined;
+  if (token && secret && (await verifyToken(token, secret))) return next();
 
   const accept = req.headers.get('accept') || '';
   const wantsHtml = accept.includes('text/html');
