@@ -24,6 +24,7 @@ const SPECIES = [
   { key: "S", label: "Glucose", unit: "g/L" },
   { key: "P", label: "Lactic Acid", unit: "g/L" },
   { key: "M", label: "Maltose", unit: "g/L" },
+  { key: "DO", label: "Dissolved O₂", unit: "mg/L" },
 ] as const;
 
 type SpeciesKey = (typeof SPECIES)[number]["key"];
@@ -835,13 +836,13 @@ function ResultsStage({ status, onToScenario, onRerun }: { status: "pending" | "
           </div>
           <div className="flex items-center gap-5 px-5 pb-4 pt-1 text-[11.5px] text-muted">
             <span className="inline-flex items-center gap-1.5">
-              <span className="w-3 h-[2px]" style={{ background: ({ X: "#1F77B4", S: "#1C1E22", P: "#2CA02C", M: "#D62728" } as const)[species] }} />
+              <span className="w-3 h-[2px]" style={{ background: ({ X: "#1F77B4", S: "#1C1E22", P: "#2CA02C", M: "#D62728", DO: "#17BECF" } as const)[species] }} />
               Predicted
             </span>
             <span className="inline-flex items-center gap-1.5">
               <span
                 className="w-1.5 h-1.5 rounded-full"
-                style={{ border: `1.5px solid ${({ X: "#1F77B4", S: "#1C1E22", P: "#2CA02C", M: "#D62728" } as const)[species]}` }}
+                style={{ border: `1.5px solid ${({ X: "#1F77B4", S: "#1C1E22", P: "#2CA02C", M: "#D62728", DO: "#17BECF" } as const)[species]}` }}
               />
               Experiment
             </span>
@@ -857,7 +858,7 @@ function ResultsStage({ status, onToScenario, onRerun }: { status: "pending" | "
                 .filter((m) => typeof m.Species !== "string" || !m.Species.startsWith("Volume"))
                 .map((m) => {
                 const isActive = typeof m.Species === "string" && m.Species.startsWith(
-                  { X: "Biomass", S: "Glucose", P: "Lactic", M: "Maltose" }[species]
+                  { X: "Biomass", S: "Glucose", P: "Lactic", M: "Maltose", DO: "Dissolved" }[species]
                 );
                 const isDO = typeof m.Species === "string" && String(m.Species).includes("O2");
                 const displayLabel = isDO
@@ -870,7 +871,7 @@ function ResultsStage({ status, onToScenario, onRerun }: { status: "pending" | "
                     key={String(m.Species)}
                     onClick={() => {
                       const key = String(m.Species).split(" ")[0];
-                      const map: Record<string, SpeciesKey> = { Biomass: "X", Glucose: "S", Lactic: "P", Maltose: "M" };
+                      const map: Record<string, SpeciesKey> = { Biomass: "X", Glucose: "S", Lactic: "P", Maltose: "M", Dissolved: "DO" };
                       setSpecies(map[key] ?? "P");
                     }}
                     className={cn(

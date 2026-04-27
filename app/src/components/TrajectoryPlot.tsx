@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 
 type Row = Record<string, number | string>;
-type SpeciesKey = "X" | "S" | "P" | "M" | "V";
+type SpeciesKey = "X" | "S" | "P" | "M" | "V" | "DO";
 
 const SPECIES_COLOR: Record<SpeciesKey, string> = {
   X: "#1F77B4",
@@ -9,6 +9,7 @@ const SPECIES_COLOR: Record<SpeciesKey, string> = {
   P: "#2CA02C",
   M: "#D62728",
   V: "#9467BD",
+  DO: "#17BECF",
 };
 
 const PAD = { l: 48, r: 24, t: 20, b: 34 };
@@ -45,17 +46,19 @@ export function TrajectoryPlot({
   species: SpeciesKey;
   batch: number;
 }) {
-  const unit = species === "V" ? "L" : "g/L";
+  const unit = species === "V" ? "L" : species === "DO" ? "mg/L" : "g/L";
   const PREFIX: Record<SpeciesKey, string> = {
     X: "Biomass_X",
     S: "Glucose_S",
     P: "Lactic_Acid_P",
     M: "Maltose_M",
     V: "Volume_V",
+    DO: "Dissolved_O2",
   };
   const prefix = PREFIX[species];
   const expKey = `${prefix}_experiment`;
   const predKey = species === "V" ? `${prefix}_analytical` : `${prefix}_pred_mean`;
+  const scale = species === "DO" ? 1000 : 1;
 
   const data = useMemo(
     () =>
@@ -63,12 +66,12 @@ export function TrajectoryPlot({
         .filter((r) => Number(r.Batch) === batch)
         .map((r) => ({
           t: Number(r["Time (h)"]),
-          exp: Number(r[expKey]),
-          pred: Number(r[predKey]),
+          exp: Number(r[expKey]) * scale,
+          pred: Number(r[predKey]) * scale,
         }))
         .filter((d) => Number.isFinite(d.t) && Number.isFinite(d.exp) && Number.isFinite(d.pred))
         .sort((a, b) => a.t - b.t),
-    [rows, batch, expKey, predKey]
+    [rows, batch, expKey, predKey, scale]
   );
 
   const xMax = useMemo(() => niceDomain(Math.max(1, ...data.map((d) => d.t))), [data]);

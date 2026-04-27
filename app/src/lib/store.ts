@@ -7,14 +7,14 @@ const HASH_MAP: Record<string, Surface> = {
   "#": "landing",
   "#labs": "landing",
   "#process-data": "fit",
-  "#what-if-simulator": "scenario1",
+  "#what-if-simulations": "scenario1",
   "#anomaly-rescue": "scenario2",
 };
 
 const SURFACE_HASH: Record<Surface, string> = {
   landing: "",
   fit: "#process-data",
-  scenario1: "#what-if-simulator",
+  scenario1: "#what-if-simulations",
   scenario2: "#anomaly-rescue",
 };
 
